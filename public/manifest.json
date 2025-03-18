@@ -23,7 +23,8 @@
     }
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
   },
   "content_scripts": [
     {
@@ -36,5 +37,10 @@
       "resources": ["content/sidebar.css"],
       "matches": ["https://github.com/*"]
     }
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "checkmate@example.com"
+    }
+  }
 } 
