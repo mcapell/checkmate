@@ -39,6 +39,18 @@ const CSS_CLASSES = {
   CHECKLIST_LOADING: 'checkmate-checklist-loading',
   CHECKLIST_ERROR: 'checkmate-checklist-error',
   RESTART_BUTTON: 'checkmate-restart-button',
+  
+  // New CSS classes for needs attention state and section
+  ITEM_NEEDS_ATTENTION: 'checkmate-item-needs-attention',
+  ITEM_STATE_TOGGLE: 'checkmate-item-state-toggle',
+  NEEDS_ATTENTION_ICON: 'checkmate-needs-attention-icon',
+  NEEDS_ATTENTION_SECTION: 'checkmate-needs-attention-section',
+  NEEDS_ATTENTION_HEADER: 'checkmate-needs-attention-header',
+  NEEDS_ATTENTION_TITLE: 'checkmate-needs-attention-title',
+  NEEDS_ATTENTION_CONTENT: 'checkmate-needs-attention-content',
+  NEEDS_ATTENTION_ITEM: 'checkmate-needs-attention-item',
+  NEEDS_ATTENTION_LINK: 'checkmate-needs-attention-link',
+  NEEDS_ATTENTION_EMPTY: 'checkmate-needs-attention-empty',
 };
 
 /**
@@ -461,6 +473,9 @@ export class Sidebar {
     // Clear existing content
     this.content.innerHTML = '';
     
+    // Render the needs attention section
+    this.renderNeedsAttentionSection();
+    
     // Create a document fragment to improve performance
     const fragment = document.createDocumentFragment();
     
@@ -653,8 +668,12 @@ export class Sidebar {
     
     // Set checkbox state from saved state
     const itemId = this.generateItemId(item);
-    if (this.state && this.state.items && this.state.items[itemId]) {
-      checkbox.checked = this.state.items[itemId].checked;
+    const itemState = this.getItemState(itemId);
+    checkbox.checked = itemState.checked;
+    
+    // Apply needs attention styling if needed
+    if (itemState.needsAttention) {
+      itemElement.classList.add(CSS_CLASSES.ITEM_NEEDS_ATTENTION);
     }
     
     // Create label
@@ -679,6 +698,35 @@ export class Sidebar {
       itemElement.appendChild(docLink);
     }
     
+    // Add state toggle button
+    const stateToggle = document.createElement('button');
+    stateToggle.className = CSS_CLASSES.ITEM_STATE_TOGGLE;
+    stateToggle.title = 'Toggle needs attention';
+    
+    // Set appropriate icon based on current state
+    this.updateToggleButtonIcon(stateToggle, itemState.needsAttention);
+    
+    // Add state toggle event
+    stateToggle.addEventListener('click', (event) => {
+      event.preventDefault();
+      this.toggleItemNeedsAttention(item);
+      
+      // Update UI
+      const newState = this.getItemState(itemId);
+      if (newState.needsAttention) {
+        itemElement.classList.add(CSS_CLASSES.ITEM_NEEDS_ATTENTION);
+      } else {
+        itemElement.classList.remove(CSS_CLASSES.ITEM_NEEDS_ATTENTION);
+      }
+      
+      this.updateToggleButtonIcon(stateToggle, newState.needsAttention);
+      
+      // Update the needs attention section
+      this.renderNeedsAttentionSection();
+    });
+    
+    itemElement.appendChild(stateToggle);
+    
     // Add checkbox change event
     checkbox.addEventListener('change', (event) => {
       const target = event.target as HTMLInputElement;
@@ -686,6 +734,53 @@ export class Sidebar {
     });
     
     return itemElement;
+  }
+  
+  /**
+   * Updates the toggle button icon based on the needs attention state
+   */
+  private updateToggleButtonIcon(button: HTMLElement, needsAttention: boolean): void {
+    if (needsAttention) {
+      button.innerHTML = '⚠️';
+      button.classList.add(CSS_CLASSES.NEEDS_ATTENTION_ICON);
+    } else {
+      button.innerHTML = '🔍';
+      button.classList.remove(CSS_CLASSES.NEEDS_ATTENTION_ICON);
+    }
+  }
+  
+  /**
+   * Toggles the "needs attention" state for an item
+   */
+  private toggleItemNeedsAttention(item: ChecklistItem): void {
+    if (this.state) {
+      const itemId = this.generateItemId(item);
+      const itemState = this.getItemState(itemId);
+      
+      // Toggle needs attention state
+      itemState.needsAttention = !itemState.needsAttention;
+      
+      // Save state
+      this.saveState();
+    }
+  }
+  
+  /**
+   * Gets the state of an item, initializing it if it doesn't exist
+   */
+  private getItemState(itemId: string): ItemState {
+    if (!this.state) {
+      return { checked: false, needsAttention: false };
+    }
+    
+    if (!this.state.items[itemId]) {
+      this.state.items[itemId] = {
+        checked: false,
+        needsAttention: false
+      };
+    }
+    
+    return this.state.items[itemId];
   }
 
   /**
@@ -705,17 +800,110 @@ export class Sidebar {
     // Update state
     if (this.state) {
       const itemId = this.generateItemId(item);
-      if (!this.state.items[itemId]) {
-        this.state.items[itemId] = {
-          checked: false,
-          needsAttention: false
-        };
-      }
+      const itemState = this.getItemState(itemId);
       
-      this.state.items[itemId].checked = checked;
+      itemState.checked = checked;
       
       // Save state
       this.saveState();
+      
+      // Update the needs attention section as it might need to change
+      this.renderNeedsAttentionSection();
+    }
+  }
+
+  /**
+   * Renders the "Needs Attention" section that displays all items marked for attention
+   */
+  private renderNeedsAttentionSection(): void {
+    // First, remove any existing needs attention section
+    const existingSection = this.content.querySelector(`.${CSS_CLASSES.NEEDS_ATTENTION_SECTION}`);
+    if (existingSection) {
+      existingSection.remove();
+    }
+
+    // Check if we have any items that need attention
+    if (!this.state || !this.template) {
+      return;
+    }
+
+    // Find all items that need attention
+    const needsAttentionItems: { item: ChecklistItem; section: Section }[] = [];
+    
+    this.template.sections.forEach(section => {
+      section.items.forEach(item => {
+        const itemId = this.generateItemId(item);
+        const itemState = this.getItemState(itemId);
+        
+        if (itemState.needsAttention) {
+          needsAttentionItems.push({ item, section });
+        }
+      });
+    });
+    
+    // Create needs attention section
+    const sectionElement = document.createElement('div');
+    sectionElement.className = CSS_CLASSES.NEEDS_ATTENTION_SECTION;
+    
+    // Create header
+    const header = document.createElement('div');
+    header.className = CSS_CLASSES.NEEDS_ATTENTION_HEADER;
+    
+    const title = document.createElement('h3');
+    title.className = CSS_CLASSES.NEEDS_ATTENTION_TITLE;
+    title.textContent = `Needs Attention (${needsAttentionItems.length})`;
+    
+    header.appendChild(title);
+    sectionElement.appendChild(header);
+    
+    // Create content
+    const content = document.createElement('div');
+    content.className = CSS_CLASSES.NEEDS_ATTENTION_CONTENT;
+    
+    if (needsAttentionItems.length === 0) {
+      const emptyMessage = document.createElement('div');
+      emptyMessage.className = CSS_CLASSES.NEEDS_ATTENTION_EMPTY;
+      emptyMessage.textContent = 'No items currently need attention';
+      content.appendChild(emptyMessage);
+    } else {
+      // Add items that need attention
+      needsAttentionItems.forEach(({ item, section }) => {
+        const itemElement = document.createElement('div');
+        itemElement.className = CSS_CLASSES.NEEDS_ATTENTION_ITEM;
+        
+        const itemLink = document.createElement('a');
+        itemLink.className = CSS_CLASSES.NEEDS_ATTENTION_LINK;
+        itemLink.textContent = `${section.name}: ${item.name}`;
+        
+        // Generate an id for the original item that we can scroll to
+        const originalItemId = `checkmate-item-${this.generateItemId(item)}`;
+        
+        // Add click handler to scroll to the original item
+        itemLink.addEventListener('click', () => {
+          const originalItem = document.getElementById(originalItemId);
+          if (originalItem) {
+            originalItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Highlight the item briefly
+            originalItem.parentElement?.classList.add('highlight');
+            setTimeout(() => {
+              originalItem.parentElement?.classList.remove('highlight');
+            }, 2000);
+          }
+        });
+        
+        itemElement.appendChild(itemLink);
+        content.appendChild(itemElement);
+      });
+    }
+    
+    sectionElement.appendChild(content);
+    
+    // Insert the needs attention section at the top of the content
+    if (this.content.firstChild) {
+      this.content.insertBefore(sectionElement, this.content.firstChild);
+    } else {
+      this.content.appendChild(sectionElement);
     }
   }
 

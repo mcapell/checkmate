@@ -669,4 +669,188 @@ describe('Sidebar Component', () => {
     // Verify state is updated
     expect(storageManager.saveChecklistState).toHaveBeenCalled();
   });
+});
+
+describe('Sidebar - Needs Attention Feature', () => {
+  let sidebar: Sidebar;
+  let mockTemplate: ChecklistTemplate;
+  let mockState: ChecklistState;
+
+  const MOCK_REPO_INFO: RepoInfo = {
+    owner: 'test-owner',
+    repo: 'test-repo',
+    prNumber: 123,
+    isValid: true
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    
+    // Setup DOM elements
+    document.body.innerHTML = `
+      <div class="gh-header-actions"></div>
+    `;
+
+    // Mock template data
+    mockTemplate = {
+      sections: [
+        {
+          name: 'Section One',
+          items: [
+            { name: 'Item 1', url: 'https://example.com/1' },
+            { name: 'Item 2' }
+          ]
+        },
+        {
+          name: 'Section Two',
+          items: [
+            { name: 'Item 3' },
+            { name: 'Item 4', url: 'https://example.com/4' }
+          ]
+        }
+      ]
+    };
+
+    // Mock state data
+    mockState = {
+      items: {
+        'item-1': { checked: false, needsAttention: false },
+        'item-2': { checked: true, needsAttention: false },
+        'item-3': { checked: false, needsAttention: true },
+        'item-4': { checked: true, needsAttention: true }
+      },
+      sections: {
+        'section-one': true,
+        'section-two': true
+      },
+      lastUpdated: Date.now(),
+      templateUrl: 'https://example.com/template.yml'
+    };
+
+    // Setup mocks
+    (templateManager.fetchTemplate as jest.Mock).mockResolvedValue('mock template content');
+    (templateManager.parseTemplate as jest.Mock).mockReturnValue(mockTemplate);
+    (templateManager.getDefaultTemplate as jest.Mock).mockResolvedValue(mockTemplate);
+    (storageManager.getChecklistState as jest.Mock).mockResolvedValue(mockState);
+
+    // Create sidebar instance with direct setup
+    sidebar = new Sidebar(MOCK_REPO_INFO);
+    sidebar.inject();
+    
+    // Directly set the template and state (bypass async loading)
+    (sidebar as any).template = mockTemplate;
+    (sidebar as any).state = mockState;
+    
+    // Manually render the template
+    (sidebar as any).renderTemplate();
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  test('should render needs attention section with flagged items', () => {
+    // Check that the needs attention section is rendered
+    const needsAttentionSection = document.querySelector('.checkmate-needs-attention-section');
+    expect(needsAttentionSection).toBeTruthy();
+    
+    // Check the title shows the correct count
+    const title = needsAttentionSection?.querySelector('.checkmate-needs-attention-title');
+    expect(title?.textContent).toContain('Needs Attention (2)');
+    
+    // Check that the flagged items are listed
+    const items = needsAttentionSection?.querySelectorAll('.checkmate-needs-attention-item');
+    expect(items?.length).toBe(2);
+    
+    // Verify the items contain the expected text
+    const itemTexts = Array.from(items || []).map(item => item.textContent);
+    expect(itemTexts.some(text => text?.includes('Section Two: Item 3'))).toBe(true);
+    expect(itemTexts.some(text => text?.includes('Section Two: Item 4'))).toBe(true);
+  });
+
+  test('should toggle item state when needs attention button is clicked', () => {
+    // Find and get references to the DOM elements we need to test
+    const itemContainers = document.querySelectorAll('.checkmate-checklist-item');
+    const item1Container = Array.from(itemContainers).find(container => 
+      container.textContent?.includes('Item 1')
+    );
+    
+    const toggleButton = item1Container?.querySelector('.checkmate-item-state-toggle');
+    expect(toggleButton).toBeTruthy();
+    
+    // Initial state - item-1 is not flagged
+    expect((sidebar as any).state.items['item-1'].needsAttention).toBe(false);
+    expect(item1Container?.classList.contains('checkmate-item-needs-attention')).toBe(false);
+    
+    // Click the toggle button to set needs attention to true
+    toggleButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    
+    // Check that state was updated
+    expect((sidebar as any).state.items['item-1'].needsAttention).toBe(true);
+    expect(item1Container?.classList.contains('checkmate-item-needs-attention')).toBe(true);
+    
+    // Verify saveState was called
+    expect(storageManager.saveChecklistState).toHaveBeenCalled();
+    
+    // Check that the needs attention section was updated
+    const needsAttentionSection = document.querySelector('.checkmate-needs-attention-section');
+    const title = needsAttentionSection?.querySelector('.checkmate-needs-attention-title');
+    expect(title?.textContent).toContain('Needs Attention (3)');
+    
+    // Find the item in the needs attention section
+    const needsAttentionItems = needsAttentionSection?.querySelectorAll('.checkmate-needs-attention-item');
+    const itemTexts = Array.from(needsAttentionItems || []).map(item => item.textContent);
+    expect(itemTexts.some(text => text?.includes('Section One: Item 1'))).toBe(true);
+  });
+
+  test('should remove item from needs attention section when toggling state off', () => {
+    // Find and get references to the DOM elements we need to test
+    const itemContainers = document.querySelectorAll('.checkmate-checklist-item');
+    const item3Container = Array.from(itemContainers).find(container => 
+      container.textContent?.includes('Item 3')
+    );
+    
+    const toggleButton = item3Container?.querySelector('.checkmate-item-state-toggle');
+    expect(toggleButton).toBeTruthy();
+    
+    // Initial state - item-3 is flagged
+    expect((sidebar as any).state.items['item-3'].needsAttention).toBe(true);
+    expect(item3Container?.classList.contains('checkmate-item-needs-attention')).toBe(true);
+    
+    // Click the toggle button to set needs attention to false
+    toggleButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    
+    // Check that state was updated
+    expect((sidebar as any).state.items['item-3'].needsAttention).toBe(false);
+    expect(item3Container?.classList.contains('checkmate-item-needs-attention')).toBe(false);
+    
+    // Verify saveState was called
+    expect(storageManager.saveChecklistState).toHaveBeenCalled();
+    
+    // Check that the needs attention section was updated
+    const needsAttentionSection = document.querySelector('.checkmate-needs-attention-section');
+    const title = needsAttentionSection?.querySelector('.checkmate-needs-attention-title');
+    expect(title?.textContent).toContain('Needs Attention (1)');
+    
+    // Verify the item was removed from the needs attention section
+    const needsAttentionItems = needsAttentionSection?.querySelectorAll('.checkmate-needs-attention-item');
+    const itemTexts = Array.from(needsAttentionItems || []).map(item => item.textContent);
+    expect(itemTexts.some(text => text?.includes('Section Two: Item 3'))).toBe(false);
+    expect(itemTexts.some(text => text?.includes('Section Two: Item 4'))).toBe(true);
+  });
+
+  test('should show empty message when no items need attention', () => {
+    // Clear the needs attention state for all items
+    (sidebar as any).state.items['item-3'].needsAttention = false;
+    (sidebar as any).state.items['item-4'].needsAttention = false;
+    
+    // Re-render the needs attention section
+    (sidebar as any).renderNeedsAttentionSection();
+    
+    // Check that the empty message is shown
+    const needsAttentionSection = document.querySelector('.checkmate-needs-attention-section');
+    const emptyMessage = needsAttentionSection?.querySelector('.checkmate-needs-attention-empty');
+    expect(emptyMessage).toBeTruthy();
+    expect(emptyMessage?.textContent).toContain('No items currently need attention');
+  });
 }); 
