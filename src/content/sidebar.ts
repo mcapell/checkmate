@@ -5,8 +5,10 @@
  */
 
 import { RepoInfo } from '../utils/github-utils';
-import { ChecklistTemplate, Section, ChecklistItem } from '../types';
+import { ChecklistTemplate, Section, ChecklistItem, ChecklistState, ItemState } from '../types';
 import { templateManager } from '../utils/template';
+import { storageManager } from '../utils/storage';
+import { generatePrIdentifier } from '../utils/github-utils';
 
 // CSS class names for styling and element selection
 const CSS_CLASSES = {
@@ -33,6 +35,7 @@ const CSS_CLASSES = {
   CHECKLIST_ITEM_DOC_LINK: 'checkmate-checklist-item-doc-link',
   CHECKLIST_LOADING: 'checkmate-checklist-loading',
   CHECKLIST_ERROR: 'checkmate-checklist-error',
+  RESTART_BUTTON: 'checkmate-restart-button',
 };
 
 /**
@@ -47,6 +50,8 @@ export class Sidebar {
   private template: ChecklistTemplate | null = null;
   private isLoading: boolean = false;
   private error: Error | null = null;
+  private state: ChecklistState | null = null;
+  private stateKey: string | null = null;
 
   /**
    * Creates a new sidebar instance
@@ -62,6 +67,9 @@ export class Sidebar {
     this.sidebar.appendChild(this.createHeader());
     this.sidebar.appendChild(this.content);
     this.container.appendChild(this.sidebar);
+
+    // Generate state key for the current PR
+    this.stateKey = this.generateStateKey();
   }
 
   /**
@@ -99,12 +107,20 @@ export class Sidebar {
     const controls = document.createElement('div');
     controls.className = CSS_CLASSES.SIDEBAR_CONTROLS;
     
+    // Restart button
+    const restartButton = document.createElement('button');
+    restartButton.className = CSS_CLASSES.RESTART_BUTTON;
+    restartButton.textContent = 'Restart Review';
+    restartButton.title = 'Reset checklist state';
+    restartButton.addEventListener('click', () => this.resetState());
+    
     // Close button
     const closeButton = document.createElement('button');
     closeButton.innerHTML = '×';
     closeButton.title = 'Close';
     closeButton.addEventListener('click', () => this.hide());
     
+    controls.appendChild(restartButton);
     controls.appendChild(closeButton);
     header.appendChild(controls);
 
@@ -169,7 +185,7 @@ export class Sidebar {
     this.container.classList.remove(CSS_CLASSES.SIDEBAR_COLLAPSED);
     this.isVisible = true;
     
-    // Load template when showing sidebar
+    // Load template and state when showing sidebar
     this.loadTemplate();
     
     // Notify background script
@@ -222,7 +238,20 @@ export class Sidebar {
   }
 
   /**
-   * Loads a template from the template manager
+   * Generates a unique state key based on the PR identifier
+   * @returns A unique key for storing the state of this PR
+   */
+  private generateStateKey(): string | null {
+    const prIdentifier = generatePrIdentifier(this.repoInfo);
+    if (!prIdentifier) {
+      console.error('Failed to generate state key: Invalid PR identifier');
+      return null;
+    }
+    return `checkmate_state_${prIdentifier}`;
+  }
+
+  /**
+   * Loads a template and state from storage
    */
   private async loadTemplate(): Promise<void> {
     // Show loading state
@@ -234,6 +263,9 @@ export class Sidebar {
       // Fetch the default template
       this.template = await templateManager.getDefaultTemplate();
       
+      // Load the saved state if available
+      await this.loadState();
+      
       // Render the template
       this.renderTemplate();
     } catch (error) {
@@ -242,6 +274,99 @@ export class Sidebar {
       this.renderError();
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  /**
+   * Loads the checklist state from storage
+   */
+  private async loadState(): Promise<void> {
+    if (!this.stateKey) {
+      console.warn('No state key available, cannot load state');
+      return;
+    }
+
+    try {
+      const state = await storageManager.getChecklistState();
+      
+      if (state) {
+        this.state = state;
+        console.log('Loaded state from storage', state);
+      } else {
+        // Initialize new state if none exists
+        this.initializeState();
+      }
+    } catch (error) {
+      console.error('Failed to load state:', error);
+      // If loading fails, initialize a new state
+      this.initializeState();
+    }
+  }
+
+  /**
+   * Initializes a new empty state
+   */
+  private initializeState(): void {
+    if (!this.template) {
+      console.warn('Cannot initialize state: Template not loaded');
+      return;
+    }
+
+    const items: Record<string, ItemState> = {};
+    const sections: Record<string, boolean> = {};
+
+    // Initialize items with unchecked state
+    this.template.sections.forEach(section => {
+      sections[section.name] = true; // Default to expanded
+      section.items.forEach(item => {
+        const itemId = this.generateItemId(item);
+        items[itemId] = {
+          checked: false,
+          needsAttention: false
+        };
+      });
+    });
+
+    this.state = {
+      items,
+      sections,
+      lastUpdated: Date.now(),
+      templateUrl: '', // Will be set when we implement template versioning
+    };
+
+    console.log('Initialized new state', this.state);
+  }
+
+  /**
+   * Saves the current state to storage
+   */
+  private async saveState(): Promise<void> {
+    if (!this.state || !this.stateKey) {
+      console.warn('No state or state key available, cannot save state');
+      return;
+    }
+
+    try {
+      // Update last updated timestamp
+      this.state.lastUpdated = Date.now();
+      await storageManager.saveChecklistState(this.state);
+      console.log('Saved state to storage', this.state);
+    } catch (error) {
+      console.error('Failed to save state:', error);
+    }
+  }
+
+  /**
+   * Resets the checklist state to all unchecked
+   */
+  private async resetState(): Promise<void> {
+    try {
+      this.initializeState();
+      await this.saveState();
+      this.renderTemplate();
+      console.log('State reset successfully');
+    } catch (error) {
+      console.error('Failed to reset state:', error);
     }
   }
 
@@ -353,10 +478,22 @@ export class Sidebar {
     sectionElement.appendChild(header);
     sectionElement.appendChild(content);
     
+    // Check if section state exists in saved state
+    if (this.state && this.state.sections && this.state.sections[section.name] === false) {
+      content.style.display = 'none';
+      toggle.innerHTML = '▶';
+    }
+    
     // Add toggle functionality
     header.addEventListener('click', () => {
       content.style.display = content.style.display === 'none' ? 'block' : 'none';
       toggle.innerHTML = content.style.display === 'none' ? '▶' : '▼';
+      
+      // Update state
+      if (this.state && this.state.sections) {
+        this.state.sections[section.name] = content.style.display !== 'none';
+        this.saveState();
+      }
     });
     
     return sectionElement;
@@ -374,6 +511,12 @@ export class Sidebar {
     checkbox.type = 'checkbox';
     checkbox.className = CSS_CLASSES.CHECKLIST_CHECKBOX;
     checkbox.id = `checkmate-item-${this.generateItemId(item)}`;
+    
+    // Set checkbox state from saved state
+    const itemId = this.generateItemId(item);
+    if (this.state && this.state.items && this.state.items[itemId]) {
+      checkbox.checked = this.state.items[itemId].checked;
+    }
     
     // Create label
     const label = document.createElement('label');
@@ -419,7 +562,22 @@ export class Sidebar {
    */
   private handleCheckboxChange(item: ChecklistItem, checked: boolean): void {
     console.log(`Item "${item.name}" ${checked ? 'checked' : 'unchecked'}`);
-    // In a future implementation, this will persist the state to storage
+    
+    // Update state
+    if (this.state) {
+      const itemId = this.generateItemId(item);
+      if (!this.state.items[itemId]) {
+        this.state.items[itemId] = {
+          checked: false,
+          needsAttention: false
+        };
+      }
+      
+      this.state.items[itemId].checked = checked;
+      
+      // Save state
+      this.saveState();
+    }
   }
 
   /**

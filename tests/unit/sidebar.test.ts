@@ -5,7 +5,8 @@
 import { Sidebar } from '../../src/content/sidebar';
 import { RepoInfo } from '../../src/utils/github-utils';
 import { templateManager } from '../../src/utils/template';
-import { ChecklistTemplate } from '../../src/types';
+import { storageManager } from '../../src/utils/storage';
+import { ChecklistState, ChecklistTemplate } from '../../src/types';
 
 // Mock template manager
 jest.mock('../../src/utils/template', () => ({
@@ -16,6 +17,26 @@ jest.mock('../../src/utils/template', () => ({
     validateTemplate: jest.fn()
   }
 }));
+
+// Mock storage manager
+jest.mock('../../src/utils/storage', () => ({
+  storageManager: {
+    getChecklistState: jest.fn(),
+    saveChecklistState: jest.fn(),
+    getOptions: jest.fn(),
+    saveOptions: jest.fn(),
+    clearStorage: jest.fn()
+  }
+}));
+
+// Mock PR identifier function
+jest.mock('../../src/utils/github-utils', () => {
+  const originalModule = jest.requireActual('../../src/utils/github-utils');
+  return {
+    ...originalModule,
+    generatePrIdentifier: jest.fn().mockReturnValue('test-owner/test-repo#123')
+  };
+});
 
 // Mock chrome.runtime API
 global.chrome = {
@@ -55,6 +76,21 @@ describe('Sidebar Component', () => {
       }
     ]
   };
+
+  // Sample state for testing
+  const mockState: ChecklistState = {
+    items: {
+      'test-item-1': { checked: true, needsAttention: false },
+      'test-item-2': { checked: false, needsAttention: true },
+      'test-item-3': { checked: true, needsAttention: false }
+    },
+    sections: { 
+      'Test Section 1': true, 
+      'Test Section 2': false 
+    },
+    lastUpdated: 1647609600000,
+    templateUrl: 'https://github.com/owner/repo/template.json'
+  };
   
   // Setup DOM elements
   let sidebar: Sidebar;
@@ -78,6 +114,10 @@ describe('Sidebar Component', () => {
     
     // Mock template manager default implementation
     (templateManager.getDefaultTemplate as jest.Mock).mockResolvedValue(mockTemplate);
+
+    // Mock storage manager default implementation
+    (storageManager.getChecklistState as jest.Mock).mockResolvedValue(null);
+    (storageManager.saveChecklistState as jest.Mock).mockResolvedValue(undefined);
   });
   
   afterEach(() => {
@@ -85,6 +125,154 @@ describe('Sidebar Component', () => {
     document.body.innerHTML = '';
   });
   
+  // Tests for state management
+  describe('State Management', () => {
+    test('should save state when checkbox is checked', async () => {
+      // Inject sidebar
+      sidebar.inject();
+      
+      // Show sidebar
+      sidebar.show();
+      
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Get first checkbox
+      const checkbox = document.querySelector('.checkmate-checklist-checkbox') as HTMLInputElement;
+      
+      // Click the checkbox
+      checkbox.checked = true;
+      checkbox.dispatchEvent(new Event('change'));
+      
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Verify state was saved
+      expect(storageManager.saveChecklistState).toHaveBeenCalled();
+      
+      // Check that the state contains the checked item
+      const saveCall = (storageManager.saveChecklistState as jest.Mock).mock.calls[0][0];
+      expect(saveCall.items['test-item-1'].checked).toBe(true);
+    });
+    
+    test('should load saved state when opening sidebar', async () => {
+      // Mock existing state
+      (storageManager.getChecklistState as jest.Mock).mockResolvedValue(mockState);
+      
+      // Inject sidebar
+      sidebar.inject();
+      
+      // Show sidebar
+      sidebar.show();
+      
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Verify storage manager was called to get state
+      expect(storageManager.getChecklistState).toHaveBeenCalled();
+      
+      // Check that checkboxes reflect the loaded state
+      const checkboxes = document.querySelectorAll('.checkmate-checklist-checkbox') as NodeListOf<HTMLInputElement>;
+      
+      // First checkbox should be checked (Test Item 1)
+      expect(checkboxes[0].checked).toBe(true);
+      
+      // Second checkbox should be unchecked (Test Item 2)
+      expect(checkboxes[1].checked).toBe(false);
+      
+      // Third checkbox should be checked (Test Item 3)
+      expect(checkboxes[2].checked).toBe(true);
+      
+      // Check that section 2 is collapsed (based on loaded state)
+      const sections = document.querySelectorAll('.checkmate-checklist-section-content');
+      expect((sections[1] as HTMLElement).style.display).toBe('none');
+    });
+    
+    test('should initialize new state when no saved state exists', async () => {
+      // Mock no existing state
+      (storageManager.getChecklistState as jest.Mock).mockResolvedValue(null);
+      
+      // Inject sidebar
+      sidebar.inject();
+      
+      // Show sidebar
+      sidebar.show();
+      
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Verify storage manager was called to get state
+      expect(storageManager.getChecklistState).toHaveBeenCalled();
+      
+      // Check that all checkboxes are unchecked
+      const checkboxes = document.querySelectorAll('.checkmate-checklist-checkbox') as NodeListOf<HTMLInputElement>;
+      Array.from(checkboxes).forEach(checkbox => {
+        expect(checkbox.checked).toBe(false);
+      });
+    });
+    
+    test('should reset state when restart button is clicked', async () => {
+      // Mock existing state
+      (storageManager.getChecklistState as jest.Mock).mockResolvedValue(mockState);
+      
+      // Inject sidebar
+      sidebar.inject();
+      
+      // Show sidebar
+      sidebar.show();
+      
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Verify initial state (checkboxes should be checked according to mockState)
+      const checkboxes = document.querySelectorAll('.checkmate-checklist-checkbox') as NodeListOf<HTMLInputElement>;
+      expect(checkboxes[0].checked).toBe(true);
+      
+      // Click the restart button
+      const restartButton = document.querySelector('.checkmate-restart-button') as HTMLButtonElement;
+      restartButton.click();
+      
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Verify state was reset and saved
+      expect(storageManager.saveChecklistState).toHaveBeenCalled();
+      
+      // Check that all checkboxes are unchecked now
+      const updatedCheckboxes = document.querySelectorAll('.checkmate-checklist-checkbox') as NodeListOf<HTMLInputElement>;
+      Array.from(updatedCheckboxes).forEach(checkbox => {
+        expect(checkbox.checked).toBe(false);
+      });
+    });
+    
+    test('should update state when section is collapsed', async () => {
+      // Inject sidebar
+      sidebar.inject();
+      
+      // Show sidebar
+      sidebar.show();
+      
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Get section header
+      const sectionHeader = document.querySelector('.checkmate-checklist-section-header') as HTMLElement;
+      
+      // Click section header to collapse
+      sectionHeader.click();
+      
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Verify state was saved
+      expect(storageManager.saveChecklistState).toHaveBeenCalled();
+      
+      // Check that the state contains the collapsed section
+      const saveCall = (storageManager.saveChecklistState as jest.Mock).mock.calls[0][0];
+      expect(saveCall.sections['Test Section 1']).toBe(false);
+    });
+  });
+
   test('should create sidebar instance with correct properties', () => {
     // Verify sidebar is created
     expect(sidebar).toBeDefined();
@@ -321,9 +509,6 @@ describe('Sidebar Component', () => {
   });
   
   test('should handle checkbox click events', async () => {
-    // Setup spy on console.log
-    const consoleSpy = jest.spyOn(console, 'log');
-    
     // Inject sidebar
     sidebar.inject();
     
@@ -340,14 +525,7 @@ describe('Sidebar Component', () => {
     checkbox.checked = true;
     checkbox.dispatchEvent(new Event('change'));
     
-    // Verify console log was called
-    expect(consoleSpy).toHaveBeenCalledWith('Item "Test Item 1" checked');
-    
-    // Uncheck the checkbox
-    checkbox.checked = false;
-    checkbox.dispatchEvent(new Event('change'));
-    
-    // Verify console log was called
-    expect(consoleSpy).toHaveBeenCalledWith('Item "Test Item 1" unchecked');
+    // Verify state is updated
+    expect(storageManager.saveChecklistState).toHaveBeenCalled();
   });
 }); 
