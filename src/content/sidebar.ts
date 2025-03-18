@@ -5,6 +5,8 @@
  */
 
 import { RepoInfo } from '../utils/github-utils';
+import { ChecklistTemplate, Section, ChecklistItem } from '../types';
+import { templateManager } from '../utils/template';
 
 // CSS class names for styling and element selection
 const CSS_CLASSES = {
@@ -18,6 +20,19 @@ const CSS_CLASSES = {
   SIDEBAR_EXPANDED: 'checkmate-sidebar-expanded',
   SIDEBAR_COLLAPSED: 'checkmate-sidebar-collapsed',
   GITHUB_HEADER: 'gh-header-actions',
+  
+  // New CSS classes for checklist elements
+  CHECKLIST_SECTION: 'checkmate-checklist-section',
+  CHECKLIST_SECTION_HEADER: 'checkmate-checklist-section-header',
+  CHECKLIST_SECTION_TITLE: 'checkmate-checklist-section-title',
+  CHECKLIST_SECTION_TOGGLE: 'checkmate-checklist-section-toggle',
+  CHECKLIST_SECTION_CONTENT: 'checkmate-checklist-section-content',
+  CHECKLIST_ITEM: 'checkmate-checklist-item',
+  CHECKLIST_CHECKBOX: 'checkmate-checklist-checkbox',
+  CHECKLIST_ITEM_LABEL: 'checkmate-checklist-item-label',
+  CHECKLIST_ITEM_DOC_LINK: 'checkmate-checklist-item-doc-link',
+  CHECKLIST_LOADING: 'checkmate-checklist-loading',
+  CHECKLIST_ERROR: 'checkmate-checklist-error',
 };
 
 /**
@@ -29,6 +44,9 @@ export class Sidebar {
   private content: HTMLElement;
   private isVisible: boolean = false;
   private repoInfo: RepoInfo;
+  private template: ChecklistTemplate | null = null;
+  private isLoading: boolean = false;
+  private error: Error | null = null;
 
   /**
    * Creates a new sidebar instance
@@ -151,6 +169,9 @@ export class Sidebar {
     this.container.classList.remove(CSS_CLASSES.SIDEBAR_COLLAPSED);
     this.isVisible = true;
     
+    // Load template when showing sidebar
+    this.loadTemplate();
+    
     // Notify background script
     this.notifyVisibilityChange(true);
   }
@@ -198,6 +219,207 @@ export class Sidebar {
    */
   public setContent(content: string): void {
     this.content.innerHTML = content;
+  }
+
+  /**
+   * Loads a template from the template manager
+   */
+  private async loadTemplate(): Promise<void> {
+    // Show loading state
+    this.renderLoadingState();
+    this.isLoading = true;
+    this.error = null;
+
+    try {
+      // Fetch the default template
+      this.template = await templateManager.getDefaultTemplate();
+      
+      // Render the template
+      this.renderTemplate();
+    } catch (error) {
+      console.error('Failed to load template:', error);
+      this.error = error instanceof Error ? error : new Error(String(error));
+      this.renderError();
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  /**
+   * Renders the loading state in the sidebar
+   */
+  private renderLoadingState(): void {
+    const loadingElement = document.createElement('div');
+    loadingElement.className = CSS_CLASSES.CHECKLIST_LOADING;
+    loadingElement.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-loader spin">
+        <line x1="12" y1="2" x2="12" y2="6"></line>
+        <line x1="12" y1="18" x2="12" y2="22"></line>
+        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+        <line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line>
+        <line x1="2" y1="12" x2="6" y2="12"></line>
+        <line x1="18" y1="12" x2="22" y2="12"></line>
+        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+        <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
+      </svg>
+      <p>Loading checklist...</p>
+    `;
+    this.content.innerHTML = '';
+    this.content.appendChild(loadingElement);
+  }
+
+  /**
+   * Renders an error message in the sidebar
+   */
+  private renderError(): void {
+    const errorElement = document.createElement('div');
+    errorElement.className = CSS_CLASSES.CHECKLIST_ERROR;
+    errorElement.innerHTML = `
+      <h4>Error Loading Checklist</h4>
+      <p>${this.error?.message || 'An unknown error occurred'}</p>
+      <button>Retry</button>
+    `;
+    
+    // Add retry button functionality
+    const retryButton = errorElement.querySelector('button');
+    if (retryButton) {
+      retryButton.addEventListener('click', () => this.loadTemplate());
+    }
+    
+    this.content.innerHTML = '';
+    this.content.appendChild(errorElement);
+  }
+
+  /**
+   * Renders the template in the sidebar
+   */
+  private renderTemplate(): void {
+    if (!this.template) {
+      this.renderError();
+      return;
+    }
+    
+    // Clear existing content
+    this.content.innerHTML = '';
+    
+    // Create a document fragment to improve performance
+    const fragment = document.createDocumentFragment();
+    
+    // Render each section
+    this.template.sections.forEach(section => {
+      fragment.appendChild(this.createSection(section));
+    });
+    
+    // Add the fragment to the content
+    this.content.appendChild(fragment);
+  }
+
+  /**
+   * Creates a section element
+   */
+  private createSection(section: Section): HTMLElement {
+    const sectionElement = document.createElement('div');
+    sectionElement.className = CSS_CLASSES.CHECKLIST_SECTION;
+    
+    // Create header
+    const header = document.createElement('div');
+    header.className = CSS_CLASSES.CHECKLIST_SECTION_HEADER;
+    
+    // Create title
+    const title = document.createElement('h4');
+    title.className = CSS_CLASSES.CHECKLIST_SECTION_TITLE;
+    title.textContent = section.name;
+    
+    // Create toggle button
+    const toggle = document.createElement('button');
+    toggle.className = CSS_CLASSES.CHECKLIST_SECTION_TOGGLE;
+    toggle.innerHTML = '▼';
+    toggle.title = 'Toggle section visibility';
+    
+    // Add title and toggle to header
+    header.appendChild(title);
+    header.appendChild(toggle);
+    
+    // Create content container
+    const content = document.createElement('div');
+    content.className = CSS_CLASSES.CHECKLIST_SECTION_CONTENT;
+    
+    // Render each item
+    section.items.forEach(item => {
+      content.appendChild(this.createChecklistItem(item));
+    });
+    
+    // Add header and content to section
+    sectionElement.appendChild(header);
+    sectionElement.appendChild(content);
+    
+    // Add toggle functionality
+    header.addEventListener('click', () => {
+      content.style.display = content.style.display === 'none' ? 'block' : 'none';
+      toggle.innerHTML = content.style.display === 'none' ? '▶' : '▼';
+    });
+    
+    return sectionElement;
+  }
+
+  /**
+   * Creates a checklist item with checkbox
+   */
+  private createChecklistItem(item: ChecklistItem): HTMLElement {
+    const itemElement = document.createElement('div');
+    itemElement.className = CSS_CLASSES.CHECKLIST_ITEM;
+    
+    // Create checkbox
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = CSS_CLASSES.CHECKLIST_CHECKBOX;
+    checkbox.id = `checkmate-item-${this.generateItemId(item)}`;
+    
+    // Create label
+    const label = document.createElement('label');
+    label.className = CSS_CLASSES.CHECKLIST_ITEM_LABEL;
+    label.htmlFor = checkbox.id;
+    label.textContent = item.name;
+    
+    // Add checkbox and label to item
+    itemElement.appendChild(checkbox);
+    itemElement.appendChild(label);
+    
+    // Add documentation link if available
+    if (item.url) {
+      const docLink = document.createElement('a');
+      docLink.className = CSS_CLASSES.CHECKLIST_ITEM_DOC_LINK;
+      docLink.href = item.url;
+      docLink.target = '_blank';
+      docLink.title = 'View documentation';
+      docLink.innerHTML = '📄';
+      
+      itemElement.appendChild(docLink);
+    }
+    
+    // Add checkbox change event
+    checkbox.addEventListener('change', (event) => {
+      const target = event.target as HTMLInputElement;
+      this.handleCheckboxChange(item, target.checked);
+    });
+    
+    return itemElement;
+  }
+
+  /**
+   * Generates a unique ID for a checklist item
+   */
+  private generateItemId(item: ChecklistItem): string {
+    // Create a simple hash from the item name to use as ID
+    return item.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  }
+
+  /**
+   * Handles checkbox change events
+   */
+  private handleCheckboxChange(item: ChecklistItem, checked: boolean): void {
+    console.log(`Item "${item.name}" ${checked ? 'checked' : 'unchecked'}`);
+    // In a future implementation, this will persist the state to storage
   }
 
   /**
