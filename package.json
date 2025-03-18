@@ -2,10 +2,9 @@
   "name": "github-code-review-checklist",
   "version": "0.1.0",
   "description": "A GitHub extension that adds a customizable checklist to pull request reviews",
-  "main": "dist/index.js",
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --outfile=dist/index.js --platform=browser",
-    "dev": "esbuild src/index.ts --bundle --outfile=dist/index.js --platform=browser --watch",
+    "build": "webpack --config webpack.config.js",
+    "dev": "webpack --config webpack.config.js --watch",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -17,8 +16,13 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@types/chrome": "^0.0.246",
     "@types/node": "^20.11.0",
+    "copy-webpack-plugin": "^11.0.0",
     "esbuild": "^0.19.11",
-    "typescript": "^5.3.3"
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.3",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
   }
 } 
