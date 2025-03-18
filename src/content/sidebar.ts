@@ -73,6 +73,27 @@ export class Sidebar {
   }
 
   /**
+   * Get the repository owner
+   */
+  public getRepoOwner(): string {
+    return this.repoInfo.owner;
+  }
+
+  /**
+   * Get the repository name
+   */
+  public getRepoName(): string {
+    return this.repoInfo.repo;
+  }
+
+  /**
+   * Get the PR number
+   */
+  public getPrNumber(): number | undefined {
+    return this.repoInfo.prNumber;
+  }
+
+  /**
    * Creates the container element that will hold the sidebar
    */
   private createContainer(): HTMLElement {
@@ -260,8 +281,13 @@ export class Sidebar {
     this.error = null;
 
     try {
+      // Generate state key for this PR
+      this.stateKey = this.generateStateKey();
+      
       // Fetch the default template
+      console.log('Loading default template from extension resources');
       this.template = await templateManager.getDefaultTemplate();
+      console.log('Template loaded successfully:', this.template);
       
       // Load the saved state if available
       await this.loadState();
@@ -282,17 +308,22 @@ export class Sidebar {
    */
   private async loadState(): Promise<void> {
     if (!this.stateKey) {
-      console.warn('No state key available, cannot load state');
-      return;
+      this.stateKey = this.generateStateKey();
+      if (!this.stateKey) {
+        console.warn('Unable to generate state key, cannot load state');
+        return;
+      }
     }
 
     try {
+      console.log('Loading state for key:', this.stateKey);
       const state = await storageManager.getChecklistState();
       
       if (state) {
         this.state = state;
         console.log('Loaded state from storage', state);
       } else {
+        console.log('No existing state found, initializing new state');
         // Initialize new state if none exists
         this.initializeState();
       }

@@ -89,8 +89,13 @@ export class DefaultTemplateManager implements TemplateManager {
    */
   async getDefaultTemplate(): Promise<ChecklistTemplate> {
     try {
-      return await this.fetchTemplate(chrome.runtime.getURL(this.defaultTemplatePath));
+      const templateUrl = chrome.runtime.getURL(this.defaultTemplatePath);
+      console.log('Loading default template from:', templateUrl);
+      const template = await this.fetchTemplate(templateUrl);
+      console.log('Successfully loaded default template');
+      return template;
     } catch (error) {
+      console.error('Error loading default template:', error);
       throw this.createError(
         'Failed to load default template',
         error instanceof Error ? error.message : String(error)
