@@ -29,6 +29,9 @@ const CSS_CLASSES = {
   CHECKLIST_SECTION_TITLE: 'checkmate-checklist-section-title',
   CHECKLIST_SECTION_TOGGLE: 'checkmate-checklist-section-toggle',
   CHECKLIST_SECTION_CONTENT: 'checkmate-checklist-section-content',
+  CHECKLIST_SECTION_CONTROLS: 'checkmate-checklist-section-controls',
+  CHECKLIST_BACK_TO_TOP: 'checkmate-back-to-top',
+  CHECKLIST_EXPAND_COLLAPSE_BTN: 'checkmate-expand-collapse-btn',
   CHECKLIST_ITEM: 'checkmate-checklist-item',
   CHECKLIST_CHECKBOX: 'checkmate-checklist-checkbox',
   CHECKLIST_ITEM_LABEL: 'checkmate-checklist-item-label',
@@ -476,6 +479,7 @@ export class Sidebar {
   private createSection(section: Section): HTMLElement {
     const sectionElement = document.createElement('div');
     sectionElement.className = CSS_CLASSES.CHECKLIST_SECTION;
+    sectionElement.id = `checkmate-section-${this.generateSectionId(section)}`;
     
     // Create header
     const header = document.createElement('div');
@@ -505,29 +509,133 @@ export class Sidebar {
       content.appendChild(this.createChecklistItem(item));
     });
     
+    // Create section controls
+    const controls = document.createElement('div');
+    controls.className = CSS_CLASSES.CHECKLIST_SECTION_CONTROLS;
+    
+    // Create Back to Top link
+    const backToTop = document.createElement('a');
+    backToTop.className = CSS_CLASSES.CHECKLIST_BACK_TO_TOP;
+    backToTop.textContent = 'Back to top';
+    backToTop.href = '#';
+    backToTop.title = 'Scroll to top of the checklist';
+    backToTop.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg> Back to top';
+    backToTop.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.content.scrollTop = 0;
+    });
+    
+    // Create expand/collapse button
+    const expandCollapseBtn = document.createElement('button');
+    expandCollapseBtn.className = CSS_CLASSES.CHECKLIST_EXPAND_COLLAPSE_BTN;
+    expandCollapseBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"></polyline><polyline points="7 6 12 11 17 6"></polyline></svg>';
+    expandCollapseBtn.title = 'Collapse section';
+    
+    // Add the controls to the content
+    controls.appendChild(backToTop);
+    controls.appendChild(expandCollapseBtn);
+    content.appendChild(controls);
+    
     // Add header and content to section
     sectionElement.appendChild(header);
     sectionElement.appendChild(content);
     
     // Check if section state exists in saved state
-    if (this.state && this.state.sections && this.state.sections[section.name] === false) {
-      content.style.display = 'none';
-      toggle.innerHTML = '▶';
-    }
+    const isExpanded = this.getSectionExpandedState(section.name);
+    this.updateSectionVisibility(content, toggle, expandCollapseBtn, isExpanded);
     
-    // Add toggle functionality
-    header.addEventListener('click', () => {
-      content.style.display = content.style.display === 'none' ? 'block' : 'none';
-      toggle.innerHTML = content.style.display === 'none' ? '▶' : '▼';
+    // Add toggle functionality to header
+    header.addEventListener('click', (e) => {
+      // Prevent triggering if the click is on the toggle button itself
+      if (e.target === toggle) return;
       
-      // Update state
-      if (this.state && this.state.sections) {
-        this.state.sections[section.name] = content.style.display !== 'none';
-        this.saveState();
-      }
+      const newExpandedState = content.style.display !== 'none';
+      this.toggleSectionVisibility(content, toggle, expandCollapseBtn, newExpandedState);
+    });
+    
+    // Add toggle functionality to toggle button
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent header click from also firing
+      const newExpandedState = content.style.display !== 'none';
+      this.toggleSectionVisibility(content, toggle, expandCollapseBtn, newExpandedState);
+    });
+    
+    // Add toggle functionality to expand/collapse button
+    expandCollapseBtn.addEventListener('click', () => {
+      const newExpandedState = content.style.display !== 'none';
+      this.toggleSectionVisibility(content, toggle, expandCollapseBtn, newExpandedState);
     });
     
     return sectionElement;
+  }
+  
+  /**
+   * Toggles the visibility of a section and updates the state
+   */
+  private toggleSectionVisibility(
+    content: HTMLElement, 
+    headerToggle: HTMLElement, 
+    expandCollapseBtn: HTMLElement, 
+    isCurrentlyExpanded: boolean
+  ): void {
+    this.updateSectionVisibility(content, headerToggle, expandCollapseBtn, !isCurrentlyExpanded);
+    
+    // Get the section name from the parent section element
+    const sectionElement = content.closest(`.${CSS_CLASSES.CHECKLIST_SECTION}`);
+    if (sectionElement) {
+      const sectionTitle = sectionElement.querySelector(`.${CSS_CLASSES.CHECKLIST_SECTION_TITLE}`);
+      if (sectionTitle && sectionTitle.textContent && this.state && this.state.sections) {
+        // Update the state with the new expanded state
+        this.state.sections[sectionTitle.textContent] = !isCurrentlyExpanded;
+        this.saveState();
+      }
+    }
+  }
+  
+  /**
+   * Updates the section visibility UI elements
+   */
+  private updateSectionVisibility(
+    content: HTMLElement, 
+    headerToggle: HTMLElement, 
+    expandCollapseBtn: HTMLElement, 
+    isExpanded: boolean
+  ): void {
+    content.style.display = isExpanded ? 'block' : 'none';
+    headerToggle.innerHTML = isExpanded ? '▼' : '▶';
+    
+    // Update expand/collapse button
+    if (isExpanded) {
+      expandCollapseBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"></polyline><polyline points="7 6 12 11 17 6"></polyline></svg> Collapse';
+      expandCollapseBtn.title = 'Collapse section';
+    } else {
+      expandCollapseBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 13 12 18 17 13"></polyline><polyline points="7 6 12 11 17 6"></polyline></svg> Expand';
+      expandCollapseBtn.title = 'Expand section';
+    }
+    
+    // Hide the controls div when collapsed
+    const controlsDiv = content.querySelector(`.${CSS_CLASSES.CHECKLIST_SECTION_CONTROLS}`) as HTMLElement;
+    if (controlsDiv) {
+      controlsDiv.style.display = isExpanded ? 'flex' : 'none';
+    }
+  }
+  
+  /**
+   * Gets the expanded state of a section from saved state
+   */
+  private getSectionExpandedState(sectionName: string): boolean {
+    if (this.state && this.state.sections && sectionName in this.state.sections) {
+      return this.state.sections[sectionName];
+    }
+    return true; // Default to expanded if no state exists
+  }
+  
+  /**
+   * Generates a unique ID for a section
+   */
+  private generateSectionId(section: Section): string {
+    // Create a simple hash from the section name to use as ID
+    return section.name.toLowerCase().replace(/[^a-z0-9]/g, '-');
   }
 
   /**

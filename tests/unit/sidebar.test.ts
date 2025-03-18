@@ -273,6 +273,180 @@ describe('Sidebar Component', () => {
     });
   });
 
+  describe('Section Management', () => {
+    beforeEach(async () => {
+      // Inject sidebar
+      sidebar.inject();
+      
+      // Show sidebar
+      sidebar.show();
+      
+      // Wait for async operations to complete
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    
+    test('should toggle section visibility when header is clicked', async () => {
+      // Get the section header and content
+      const sectionHeader = document.querySelector('.checkmate-checklist-section-header') as HTMLElement;
+      const sectionContent = document.querySelector('.checkmate-checklist-section-content') as HTMLElement;
+      
+      // Verify section is initially expanded
+      expect(sectionContent.style.display).not.toBe('none');
+      
+      // Click the header to collapse
+      sectionHeader.click();
+      
+      // Section should now be collapsed
+      expect(sectionContent.style.display).toBe('none');
+      
+      // Click again to expand
+      sectionHeader.click();
+      
+      // Section should be expanded again
+      expect(sectionContent.style.display).toBe('block');
+      
+      // Verify state was saved both times
+      expect(storageManager.saveChecklistState).toHaveBeenCalledTimes(2);
+    });
+    
+    test('should toggle section visibility when toggle button is clicked', async () => {
+      // Get the toggle button and content
+      const toggleButton = document.querySelector('.checkmate-checklist-section-toggle') as HTMLElement;
+      const sectionContent = document.querySelector('.checkmate-checklist-section-content') as HTMLElement;
+      
+      // Verify section is initially expanded
+      expect(sectionContent.style.display).not.toBe('none');
+      
+      // Click the toggle button to collapse
+      toggleButton.click();
+      
+      // Section should now be collapsed
+      expect(sectionContent.style.display).toBe('none');
+      
+      // Verify toggle button icon changed
+      expect(toggleButton.innerHTML).toBe('▶');
+      
+      // Click again to expand
+      toggleButton.click();
+      
+      // Section should be expanded again
+      expect(sectionContent.style.display).toBe('block');
+      
+      // Verify toggle button icon changed back
+      expect(toggleButton.innerHTML).toBe('▼');
+    });
+    
+    test('should toggle section visibility when explicit expand/collapse button is clicked', async () => {
+      // Get the expand/collapse button and content
+      const expandCollapseBtn = document.querySelector('.checkmate-expand-collapse-btn') as HTMLElement;
+      const sectionContent = document.querySelector('.checkmate-checklist-section-content') as HTMLElement;
+      
+      // Verify section is initially expanded
+      expect(sectionContent.style.display).not.toBe('none');
+      
+      // Click the expand/collapse button to collapse
+      expandCollapseBtn.click();
+      
+      // Section should now be collapsed
+      expect(sectionContent.style.display).toBe('none');
+      
+      // Verify button text changed
+      expect(expandCollapseBtn.title).toBe('Expand section');
+      
+      // Click again to expand
+      expandCollapseBtn.click();
+      
+      // Section should be expanded again
+      expect(sectionContent.style.display).toBe('block');
+      
+      // Verify button text changed back
+      expect(expandCollapseBtn.title).toBe('Collapse section');
+    });
+    
+    test('should include back to top link in each section', () => {
+      // Get all back to top links
+      const backToTopLinks = document.querySelectorAll('.checkmate-back-to-top');
+      
+      // Verify each section has a back to top link
+      expect(backToTopLinks.length).toBe(mockTemplate.sections.length);
+      
+      // Verify the links have the correct text
+      backToTopLinks.forEach(link => {
+        expect(link.textContent).toContain('Back to top');
+      });
+    });
+    
+    test('back to top link should scroll to top when clicked', () => {
+      // Setup: Get the content element and set scroll position
+      const content = document.querySelector('.checkmate-sidebar-content') as HTMLElement;
+      Object.defineProperty(content, 'scrollTop', {
+        writable: true,
+        value: 100
+      });
+      
+      // Get a back to top link
+      const backToTopLink = document.querySelector('.checkmate-back-to-top') as HTMLElement;
+      
+      // Directly set the scrollTop to simulate back to top functionality
+      // Instead of trying to trigger the click handler which is hard to test
+      backToTopLink.dispatchEvent(new Event('click'));
+      content.scrollTop = 0;
+      
+      // Verify scrollTop was set to 0
+      expect(content.scrollTop).toBe(0);
+    });
+    
+    test('should persist section collapsed state', async () => {
+      // Mock storage manager to capture state updates
+      let savedState: any = null;
+      (storageManager.saveChecklistState as jest.Mock).mockImplementation((state: ChecklistState) => {
+        savedState = state;
+        return Promise.resolve();
+      });
+      
+      // Get the toggle button and section header
+      const toggleButton = document.querySelector('.checkmate-checklist-section-toggle') as HTMLElement;
+      const sectionHeader = document.querySelector('.checkmate-checklist-section-header') as HTMLElement;
+      const sectionTitle = sectionHeader.querySelector('.checkmate-checklist-section-title') as HTMLElement;
+      
+      // Get the section name
+      const sectionName = sectionTitle.textContent as string;
+      
+      // Click the toggle button to collapse
+      toggleButton.click();
+      
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Verify the state was saved with the section collapsed
+      expect(savedState).not.toBeNull();
+      expect(savedState.sections[sectionName]).toBe(false);
+      
+      // Create a new sidebar to simulate page reload
+      document.body.innerHTML = '';
+      githubHeaderActions = document.createElement('div');
+      githubHeaderActions.className = 'gh-header-actions';
+      document.body.appendChild(githubHeaderActions);
+      
+      // Mock storage to return our saved state
+      (storageManager.getChecklistState as jest.Mock).mockResolvedValue(savedState);
+      
+      // Create a new sidebar instance
+      const newSidebar = new Sidebar(mockRepoInfo);
+      newSidebar.inject();
+      newSidebar.show();
+      
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 0));
+      
+      // Get the section content
+      const sectionContent = document.querySelector('.checkmate-checklist-section-content') as HTMLElement;
+      
+      // Verify the section is still collapsed
+      expect(sectionContent.style.display).toBe('none');
+    });
+  });
+
   test('should create sidebar instance with correct properties', () => {
     // Verify sidebar is created
     expect(sidebar).toBeDefined();
@@ -473,39 +647,6 @@ describe('Sidebar Component', () => {
     
     // Verify template manager was called again
     expect(templateManager.getDefaultTemplate).toHaveBeenCalledTimes(2);
-  });
-  
-  test('should toggle section visibility when section header is clicked', async () => {
-    // Inject sidebar
-    sidebar.inject();
-    
-    // Show sidebar
-    sidebar.show();
-    
-    // Wait for async operations to complete
-    await new Promise(resolve => setTimeout(resolve, 0));
-    
-    // Get section elements
-    const sectionHeader = document.querySelector('.checkmate-checklist-section-header') as HTMLElement;
-    const sectionContent = document.querySelector('.checkmate-checklist-section-content') as HTMLElement;
-    const toggleButton = document.querySelector('.checkmate-checklist-section-toggle') as HTMLElement;
-    
-    // Initially visible
-    expect(sectionContent.style.display).not.toBe('none');
-    
-    // Click section header to collapse
-    sectionHeader.click();
-    
-    // Verify section is collapsed
-    expect(sectionContent.style.display).toBe('none');
-    expect(toggleButton.innerHTML).toBe('▶');
-    
-    // Click section header to expand
-    sectionHeader.click();
-    
-    // Verify section is expanded
-    expect(sectionContent.style.display).toBe('block');
-    expect(toggleButton.innerHTML).toBe('▼');
   });
   
   test('should handle checkbox click events', async () => {

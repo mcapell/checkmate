@@ -92,6 +92,7 @@
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  scroll-behavior: smooth;
 }
 
 /* Toggle button in GitHub header */
@@ -152,6 +153,49 @@
 .checkmate-checklist-section-content {
   padding: 8px 12px;
   background-color: var(--color-canvas-default, #ffffff);
+}
+
+/* Section Controls */
+.checkmate-checklist-section-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border-muted, #d8dee4);
+}
+
+/* Back to top link */
+.checkmate-back-to-top {
+  font-size: 12px;
+  color: var(--color-accent-fg, #0969da);
+  cursor: pointer;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.checkmate-back-to-top:hover {
+  text-decoration: underline;
+}
+
+/* Expand/Collapse buttons */
+.checkmate-expand-collapse-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  background-color: transparent;
+  border: none;
+  color: var(--color-fg-muted, #57606a);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.checkmate-expand-collapse-btn:hover {
+  background-color: var(--color-neutral-muted, rgba(175, 184, 193, 0.2));
 }
 
 /* Checklist Item */
@@ -248,7 +292,6 @@
   
   .checkmate-sidebar-header {
     background-color: var(--color-canvas-subtle, #161b22);
-    border-bottom-color: var(--color-border-default, #30363d);
   }
   
   .checkmate-sidebar-title {
@@ -256,13 +299,12 @@
   }
   
   .checkmate-sidebar-controls button {
-    color: var(--color-fg-muted, #8b949e);
+    color: var(--color-fg-default, #c9d1d9);
   }
   
   .checkmate-restart-button {
     background-color: var(--color-btn-bg, #21262d) !important;
     border-color: var(--color-btn-border, #30363d) !important;
-    color: var(--color-fg-default, #c9d1d9) !important;
   }
   
   .checkmate-restart-button:hover {
@@ -293,12 +335,29 @@
     background-color: var(--color-canvas-default, #0d1117);
   }
   
+  .checkmate-checklist-section-controls {
+    border-top-color: var(--color-border-muted, #30363d);
+  }
+  
+  .checkmate-back-to-top {
+    color: var(--color-accent-fg, #58a6ff);
+  }
+  
+  .checkmate-expand-collapse-btn {
+    color: var(--color-fg-muted, #8b949e);
+  }
+  
+  .checkmate-expand-collapse-btn:hover {
+    background-color: var(--color-neutral-muted, rgba(110, 118, 129, 0.4));
+  }
+  
   .checkmate-checklist-item-label {
     color: var(--color-fg-default, #c9d1d9);
   }
   
   .checkmate-checklist-error {
-    background-color: rgba(248, 81, 73, 0.1);
-    border-color: rgba(248, 81, 73, 0.2);
+    background-color: var(--color-danger-subtle, #da3633);
+    border-color: var(--color-danger-muted, #f85149);
+    color: var(--color-danger-fg, #f85149);
   }
 } 
