@@ -109,6 +109,13 @@ export class Sidebar {
   }
 
   /**
+   * Returns whether the sidebar is currently visible
+   */
+  public getIsVisible(): boolean {
+    return this.isVisible;
+  }
+
+  /**
    * Creates the container element that will hold the sidebar
    */
   private createContainer(): HTMLElement {

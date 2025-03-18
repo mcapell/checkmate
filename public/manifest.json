@@ -9,13 +9,13 @@
     "128": "icons/icon128.png"
   },
   "permissions": [
-    "storage"
+    "storage",
+    "tabs"
   ],
   "host_permissions": [
     "https://github.com/*"
   ],
   "action": {
-    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -36,7 +36,8 @@
       "resources": [
         "content/sidebar.css",
         "default-template.yaml",
-        "icons/*"
+        "icons/*",
+        "popup.html"
       ],
       "matches": ["https://github.com/*"]
     }

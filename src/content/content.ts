@@ -121,28 +121,93 @@ function checkForURLChange() {
 // This is more reliable for GitHub's SPA navigation
 checkForURLChange();
 
+// Toggle the sidebar on browser action click
+function toggleSidebar(): { success: boolean; isVisible?: boolean } {
+  const sidebar = activeSidebar as Sidebar | null;
+  
+  if (!sidebar) {
+    // We're not on a PR page or sidebar hasn't been initialized
+    console.warn('Cannot toggle sidebar: not on a PR page or sidebar not initialized');
+    return { success: false };
+  }
+  
+  if (isGitHubPrPage(window.location.href)) {
+    // Toggle sidebar visibility
+    // Use DOM inspection to determine if the sidebar is visible
+    const sidebarContainer = document.querySelector('.checkmate-sidebar-container');
+    const isCurrentlyVisible = sidebarContainer?.classList.contains('checkmate-sidebar-expanded') || false;
+    
+    if (isCurrentlyVisible) {
+      sidebar.hide();
+    } else {
+      sidebar.show();
+    }
+    return { success: true, isVisible: !isCurrentlyVisible };
+  }
+  
+  return { success: false };
+}
+
 // Listen for messages from the background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!activeSidebar) return;
+  console.log('Content script received message:', message);
+  
+  if (!isGitHubPrPage(window.location.href) && 
+     (message.action === 'showSidebar' || message.action === 'hideSidebar')) {
+    // We're not on a PR page, send failure response
+    console.warn('Not on a PR page, cannot handle sidebar action');
+    sendResponse({ success: false, error: 'Not on a PR page' });
+    return true;
+  }
+  
+  // Type guard to ensure activeSidebar is treated as Sidebar type
+  const sidebar = activeSidebar as Sidebar | null;
   
   switch (message.action) {
     case 'showSidebar':
-      activeSidebar.show();
-      sendResponse({ success: true });
+      if (sidebar) {
+        sidebar.show();
+        sendResponse({ success: true, isVisible: true });
+      } else {
+        // Try to initialize since we might have missed it
+        initOnPullRequestPage();
+        // Check again after initialization
+        const reinitializedSidebar = activeSidebar as Sidebar | null;
+        if (reinitializedSidebar) {
+          reinitializedSidebar.show();
+          sendResponse({ success: true, isVisible: true });
+        } else {
+          sendResponse({ success: false, error: 'Sidebar not initialized' });
+        }
+      }
       break;
       
     case 'hideSidebar':
-      activeSidebar.hide();
-      sendResponse({ success: true });
+      if (sidebar) {
+        sidebar.hide();
+        sendResponse({ success: true, isVisible: false });
+      } else {
+        sendResponse({ success: false, error: 'Sidebar not initialized' });
+      }
+      break;
+      
+    case 'toggleSidebar':
+      const result = toggleSidebar();
+      sendResponse(result);
       break;
       
     case 'updateSidebarContent':
-      if (message.data && message.data.content) {
-        activeSidebar.setContent(message.data.content);
+      if (sidebar && message.data && message.data.content) {
+        sidebar.setContent(message.data.content);
         sendResponse({ success: true });
       } else {
-        sendResponse({ success: false, error: 'No content provided' });
+        sendResponse({ success: false, error: 'No sidebar or content provided' });
       }
       break;
+      
+    default:
+      sendResponse({ success: false, error: 'Unknown action' });
   }
+  
+  return true; // Keep the message channel open for async responses
 }); 
