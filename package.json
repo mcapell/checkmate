@@ -1,0 +1,24 @@
+{
+  "name": "github-code-review-checklist",
+  "version": "0.1.0",
+  "description": "A GitHub extension that adds a customizable checklist to pull request reviews",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --outfile=dist/index.js --platform=browser",
+    "dev": "esbuild src/index.ts --bundle --outfile=dist/index.js --platform=browser --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "github",
+    "code-review",
+    "checklist",
+    "extension"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.19.11",
+    "typescript": "^5.3.3"
+  }
+} 

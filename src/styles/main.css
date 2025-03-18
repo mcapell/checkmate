@@ -1,0 +1,19 @@
+/* Main styles for GitHub Code Review Checklist Extension */
+
+.gh-review-checklist {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  background-color: #f6f8fa;
+}
+
+.gh-review-checklist-item {
+  display: flex;
+  align-items: center;
+  margin: 5px 0;
+}
+
+.gh-review-checklist-item input[type="checkbox"] {
+  margin-right: 8px;
+} 
