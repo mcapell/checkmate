@@ -698,8 +698,9 @@ export class Sidebar {
       itemElement.appendChild(docLink);
     }
     
-    // Add state toggle button
+    // Add state toggle button (ensure Firefox compatibility)
     const stateToggle = document.createElement('button');
+    stateToggle.type = 'button'; // Explicitly set type for better cross-browser support
     stateToggle.className = CSS_CLASSES.ITEM_STATE_TOGGLE;
     stateToggle.title = 'Toggle needs attention';
     
@@ -709,6 +710,7 @@ export class Sidebar {
     // Add state toggle event
     stateToggle.addEventListener('click', (event) => {
       event.preventDefault();
+      event.stopPropagation(); // Prevent event bubbling
       this.toggleItemNeedsAttention(item);
       
       // Update UI
@@ -725,6 +727,9 @@ export class Sidebar {
       this.renderNeedsAttentionSection();
     });
     
+    // Ensure the button is always visible
+    stateToggle.style.display = 'flex';
+    
     itemElement.appendChild(stateToggle);
     
     // Add checkbox change event
@@ -740,11 +745,21 @@ export class Sidebar {
    * Updates the toggle button icon based on the needs attention state
    */
   private updateToggleButtonIcon(button: HTMLElement, needsAttention: boolean): void {
+    // Clear existing content
+    button.innerHTML = '';
+    
+    // Create a span to hold the icon (more reliable than innerHTML)
+    const iconSpan = document.createElement('span');
+    iconSpan.textContent = needsAttention ? '⚠️' : '🔍';
+    iconSpan.style.fontSize = '18px';
+    
+    // Append the span to the button
+    button.appendChild(iconSpan);
+    
+    // Update class
     if (needsAttention) {
-      button.innerHTML = '⚠️';
       button.classList.add(CSS_CLASSES.NEEDS_ATTENTION_ICON);
     } else {
-      button.innerHTML = '🔍';
       button.classList.remove(CSS_CLASSES.NEEDS_ATTENTION_ICON);
     }
   }

@@ -207,6 +207,7 @@
   padding: 4px;
   border-radius: 4px;
   transition: background-color 0.2s;
+  flex-wrap: nowrap;
 }
 
 /* Item in needs-attention state */
@@ -220,6 +221,7 @@
 .checkmate-checklist-checkbox {
   margin-right: 8px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 /* State toggle button */
@@ -231,6 +233,14 @@
   border: none;
   padding: 0;
   color: var(--color-fg-muted, #57606a);
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 .checkmate-item-state-toggle:hover {
