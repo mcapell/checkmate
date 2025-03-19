@@ -1,4 +1,72 @@
 /**
+ * Type definitions for the GitHub Code Review Checklist extension
+ */
+
+/**
+ * Extension options
+ */
+export interface ExtensionOptions {
+  defaultTemplateUrl: string;
+  theme: 'light' | 'dark' | 'auto';
+}
+
+/**
+ * Checklist template
+ */
+export interface Template {
+  title: string;
+  sections: Section[];
+}
+
+/**
+ * Template section
+ */
+export interface Section {
+  title: string;
+  items: ChecklistItem[];
+}
+
+/**
+ * Checklist item
+ */
+export interface ChecklistItem {
+  text: string;
+  required?: boolean;
+}
+
+/**
+ * Checklist item state
+ */
+export interface ChecklistItemState {
+  checked: boolean;
+  notes: string;
+}
+
+/**
+ * Checklist state for a PR
+ */
+export interface ChecklistState {
+  items: Record<string, ChecklistItemState>;
+  timestamp: number;
+}
+
+/**
+ * Storage state for all PRs
+ */
+export interface StorageState {
+  [prUrl: string]: ChecklistState;
+}
+
+/**
+ * PR information
+ */
+export interface PRInfo {
+  owner: string;
+  repo: string;
+  prNumber: number;
+}
+
+/**
  * Core data structure definitions for the Checkmate extension
  */
 
@@ -9,40 +77,9 @@ export interface ChecklistTemplate {
   sections: Section[];
 }
 
-export interface Section {
-  name: string;
-  items: ChecklistItem[];
-}
-
-export interface ChecklistItem {
-  name: string;
-  url?: string;
-}
-
-/**
- * State Structures
- */
-export interface ChecklistState {
-  items: Record<string, ItemState>;
-  sections: Record<string, boolean>; // true = expanded, false = collapsed
-  lastUpdated: number; // timestamp
-  templateUrl: string;
-  templateVersion?: string;
-}
-
 export interface ItemState {
   checked: boolean;
   needsAttention: boolean;
-}
-
-/**
- * Extension Configuration
- */
-export interface ExtensionOptions {
-  /** Default template URL to use */
-  defaultTemplateUrl: string;
-  /** Theme preference (light or dark) */
-  theme: 'light' | 'dark' | 'auto';
 }
 
 /**

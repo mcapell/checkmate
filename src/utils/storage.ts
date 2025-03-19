@@ -1,5 +1,6 @@
-import { ChecklistState, ErrorCategory, ExtensionOptions } from '../types';
+import { ChecklistState, ErrorCategory, ExtensionOptions, StorageState } from '../types';
 import { handleStorageError } from './error-handler';
+import { getBrowserAPI, promisify } from './browser-detection';
 
 /**
  * Interface for the storage manager that handles persistent storage
@@ -11,13 +12,13 @@ export interface StorageManager {
    * @param state - The checklist state to save
    * @returns A promise that resolves when the state is saved
    */
-  saveChecklistState(state: ChecklistState): Promise<void>;
+  saveChecklistState(state: StorageState): Promise<void>;
 
   /**
    * Retrieves the checklist state from browser storage
    * @returns A promise that resolves with the checklist state or null if not found
    */
-  getChecklistState(): Promise<ChecklistState | null>;
+  getChecklistState(): Promise<StorageState>;
 
   /**
    * Saves the extension options to browser storage
@@ -52,225 +53,151 @@ const DEFAULT_OPTIONS: ExtensionOptions = {
 };
 
 /**
- * Browser-agnostic implementation of the StorageManager interface
- * Handles both Chrome and Firefox browser APIs
+ * Storage Manager
+ * 
+ * Handles persistent storage for the extension.
  */
-class BrowserStorageManager implements StorageManager {
-  private storage: chrome.storage.StorageArea;
-
+class StorageManager {
   /**
-   * Create a new BrowserStorageManager
-   * @param storageArea - Optional storage area to use (for testing)
-   */
-  constructor(storageArea?: chrome.storage.StorageArea) {
-    // Use provided storage area (for testing) or get from browser
-    if (storageArea) {
-      this.storage = storageArea;
-    } else {
-      // Check if we're in a browser environment
-      if (typeof chrome !== 'undefined' && chrome.storage) {
-        // Use sync storage if available, fall back to local storage
-        this.storage = chrome.storage.sync || chrome.storage.local;
-      } else {
-        throw handleStorageError(
-          'Browser storage is not available',
-          { environment: typeof window !== 'undefined' ? 'browser' : 'non-browser' },
-          [
-            'Make sure you are using a supported browser',
-            'Check if browser extensions are enabled'
-          ],
-          false
-        );
-      }
-    }
-  }
-
-  /**
-   * Saves the checklist state to browser storage
-   * @param state - The checklist state to save
-   * @returns A promise that resolves when the state is saved
-   */
-  async saveChecklistState(state: ChecklistState): Promise<void> {
-    try {
-      if (!state) {
-        throw new Error('Cannot save null or undefined checklist state');
-      }
-      
-      console.log('Saving checklist state...');
-      await this.set({ [STORAGE_KEYS.CHECKLIST_STATE]: state });
-      console.log('Checklist state saved successfully');
-    } catch (error) {
-      console.error('Failed to save checklist state:', error);
-      throw handleStorageError(
-        'Failed to save checklist state',
-        { 
-          error: error instanceof Error ? error.message : String(error),
-          state: { ...state, items: 'truncated for logging' }
-        },
-        [
-          'Try again in a few moments',
-          'Check your browser permissions for storage access',
-          'If the problem persists, try clearing the extension data'
-        ],
-        true
-      );
-    }
-  }
-
-  /**
-   * Retrieves the checklist state from browser storage
-   * @returns A promise that resolves with the checklist state or null if not found
-   */
-  async getChecklistState(): Promise<ChecklistState | null> {
-    try {
-      console.log('Retrieving checklist state...');
-      const result = await this.get(STORAGE_KEYS.CHECKLIST_STATE);
-      const state = result[STORAGE_KEYS.CHECKLIST_STATE] || null;
-      
-      if (state) {
-        console.log('Checklist state retrieved successfully');
-      } else {
-        console.log('No existing checklist state found');
-      }
-      
-      return state;
-    } catch (error) {
-      console.error('Failed to retrieve checklist state:', error);
-      throw handleStorageError(
-        'Failed to retrieve checklist state', 
-        error instanceof Error ? error.message : String(error),
-        [
-          'Try reloading the extension',
-          'Check your browser permissions for storage access',
-          'If the problem persists, try clearing the extension data'
-        ],
-        true
-      );
-    }
-  }
-
-  /**
-   * Saves the extension options to browser storage
-   * @param options - The extension options to save
-   * @returns A promise that resolves when the options are saved
-   */
-  async saveOptions(options: ExtensionOptions): Promise<void> {
-    try {
-      if (!options) {
-        throw new Error('Cannot save null or undefined options');
-      }
-      
-      console.log('Saving extension options...');
-      await this.set({ [STORAGE_KEYS.OPTIONS]: options });
-      console.log('Extension options saved successfully');
-    } catch (error) {
-      console.error('Failed to save extension options:', error);
-      throw handleStorageError(
-        'Failed to save extension options', 
-        { 
-          error: error instanceof Error ? error.message : String(error),
-          options
-        },
-        [
-          'Try again in a few moments',
-          'Check your browser permissions for storage access',
-          'If the problem persists, try clearing the extension data'
-        ],
-        true
-      );
-    }
-  }
-
-  /**
-   * Retrieves the extension options from browser storage
-   * @returns A promise that resolves with the extension options (or default options if none are found)
+   * Get extension options from storage
+   * @returns The extension options
    */
   async getOptions(): Promise<ExtensionOptions> {
+    const browser = getBrowserAPI();
+    
     try {
-      console.log('Retrieving extension options...');
-      const result = await this.get(STORAGE_KEYS.OPTIONS);
-      const options = result[STORAGE_KEYS.OPTIONS] || DEFAULT_OPTIONS;
-      
-      if (result[STORAGE_KEYS.OPTIONS]) {
-        console.log('Extension options retrieved successfully');
-      } else {
-        console.log('No stored options found, using default options');
+      // Firefox uses promise-based API, Chrome uses callbacks
+      if (typeof browser.storage.sync.get === 'function') {
+        if (typeof browser === 'object' && browser.storage.sync.get.constructor.name !== 'AsyncFunction') {
+          // Chrome-style: Use promisify for callback-based API
+          const result = await promisify(browser.storage.sync.get.bind(browser.storage.sync), ['defaultTemplateUrl', 'theme']);
+          return this.getDefaultOptions(result);
+        } else {
+          // Firefox-style: Already promise-based
+          const result = await browser.storage.sync.get(['defaultTemplateUrl', 'theme']);
+          return this.getDefaultOptions(result);
+        }
       }
       
-      return options;
+      // Fallback
+      return this.getDefaultOptions({});
     } catch (error) {
-      console.error('Failed to retrieve extension options:', error);
-      console.log('Falling back to default options due to error');
-      
-      // For options, we always fall back to defaults rather than throw
-      return DEFAULT_OPTIONS;
+      console.error('Error getting options:', error);
+      return this.getDefaultOptions({});
     }
   }
-
+  
   /**
-   * Clears all storage data
-   * @returns A promise that resolves when the storage is cleared
+   * Save extension options to storage
+   * @param options The options to save
+   */
+  async saveOptions(options: ExtensionOptions): Promise<void> {
+    const browser = getBrowserAPI();
+    
+    try {
+      if (typeof browser.storage.sync.set === 'function') {
+        if (typeof browser === 'object' && browser.storage.sync.set.constructor.name !== 'AsyncFunction') {
+          // Chrome-style
+          await promisify(browser.storage.sync.set.bind(browser.storage.sync), options);
+        } else {
+          // Firefox-style
+          await browser.storage.sync.set(options);
+        }
+        
+        // Dispatch event to notify other components about the options change
+        document.dispatchEvent(new CustomEvent('options-changed', { detail: options }));
+      }
+    } catch (error) {
+      console.error('Error saving options:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Get checklist state from storage
+   * @returns The checklist state
+   */
+  async getChecklistState(): Promise<StorageState> {
+    const browser = getBrowserAPI();
+    
+    try {
+      if (typeof browser.storage.local.get === 'function') {
+        if (typeof browser === 'object' && browser.storage.local.get.constructor.name !== 'AsyncFunction') {
+          // Chrome-style
+          const result = await promisify(browser.storage.local.get.bind(browser.storage.local), 'checklistState');
+          return result.checklistState || {};
+        } else {
+          // Firefox-style
+          const result = await browser.storage.local.get('checklistState');
+          return result.checklistState || {};
+        }
+      }
+      
+      // Fallback
+      return {};
+    } catch (error) {
+      console.error('Error getting checklist state:', error);
+      return {};
+    }
+  }
+  
+  /**
+   * Save checklist state to storage
+   * @param state The state to save
+   */
+  async saveChecklistState(state: StorageState): Promise<void> {
+    const browser = getBrowserAPI();
+    
+    try {
+      if (typeof browser.storage.local.set === 'function') {
+        if (typeof browser === 'object' && browser.storage.local.set.constructor.name !== 'AsyncFunction') {
+          // Chrome-style
+          await promisify(browser.storage.local.set.bind(browser.storage.local), { checklistState: state });
+        } else {
+          // Firefox-style
+          await browser.storage.local.set({ checklistState: state });
+        }
+      }
+    } catch (error) {
+      console.error('Error saving checklist state:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Clear all stored data (options and state)
    */
   async clearStorage(): Promise<void> {
+    const browser = getBrowserAPI();
+    
     try {
-      console.log('Clearing storage...');
-      await new Promise<void>((resolve, reject) => {
-        this.storage.clear(() => {
-          if (chrome.runtime.lastError) {
-            reject(chrome.runtime.lastError);
-          } else {
-            resolve();
-          }
-        });
-      });
-      console.log('Storage cleared successfully');
+      if (typeof browser.storage.local.clear === 'function') {
+        if (typeof browser === 'object' && browser.storage.local.clear.constructor.name !== 'AsyncFunction') {
+          // Chrome-style
+          await promisify(browser.storage.local.clear.bind(browser.storage.local));
+          await promisify(browser.storage.sync.clear.bind(browser.storage.sync));
+        } else {
+          // Firefox-style
+          await browser.storage.local.clear();
+          await browser.storage.sync.clear();
+        }
+      }
     } catch (error) {
-      console.error('Failed to clear storage:', error);
-      throw handleStorageError(
-        'Failed to clear storage', 
-        error instanceof Error ? error.message : String(error),
-        [
-          'Try reloading the extension',
-          'Check your browser permissions for storage access',
-          'Try again in a few moments'
-        ],
-        true
-      );
+      console.error('Error clearing storage:', error);
+      throw error;
     }
   }
-
+  
   /**
-   * Helper method to set a value in storage with browser compatibility
-   * @param items - Object containing keys and values to store
-   * @returns A promise that resolves when the operation is complete
+   * Get default options if not found in storage
+   * @param storedOptions Partial options from storage
+   * @returns Complete options with defaults for missing values
    */
-  private async set(items: Record<string, any>): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      this.storage.set(items, () => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve();
-        }
-      });
-    });
-  }
-
-  /**
-   * Helper method to get a value from storage with browser compatibility
-   * @param key - Key to retrieve from storage
-   * @returns A promise that resolves with the requested data
-   */
-  private async get(key: string): Promise<Record<string, any>> {
-    return new Promise((resolve, reject) => {
-      this.storage.get(key, (result) => {
-        if (chrome.runtime.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(result);
-        }
-      });
-    });
+  private getDefaultOptions(storedOptions: Partial<ExtensionOptions>): ExtensionOptions {
+    return {
+      defaultTemplateUrl: storedOptions.defaultTemplateUrl || 'https://raw.githubusercontent.com/github/docs/main/content/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/customizing-code-scanning.md',
+      theme: storedOptions.theme || 'auto'
+    };
   }
 }
 
@@ -279,7 +206,7 @@ class BrowserStorageManager implements StorageManager {
 let storageManagerInstance: StorageManager;
 
 try {
-  storageManagerInstance = new BrowserStorageManager();
+  storageManagerInstance = new StorageManager();
 } catch (error) {
   console.warn('Browser storage not available, storage manager will not be initialized', error);
 }
@@ -287,4 +214,4 @@ try {
 export const storageManager: StorageManager = storageManagerInstance!;
 
 // Export the class for testing purposes
-export { BrowserStorageManager }; 
+export { StorageManager }; 
