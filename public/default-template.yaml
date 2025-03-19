@@ -1,0 +1,41 @@
+# Default Code Review Checklist Template
+# This template provides a basic structure for code reviews
+
+sections:
+  - name: Code Quality
+    items:
+      - name: Code follows project style guidelines
+        url: https://google.github.io/styleguide/
+      - name: Functions are small and focused on a single responsibility
+      - name: Variable and function names are clear and descriptive
+      - name: Comments explain "why" not "what" where needed
+      - name: No duplicated code or unnecessary complexity
+
+  - name: Security
+    items:
+      - name: Input validation is properly implemented
+      - name: No sensitive data exposed in logs or UI
+      - name: Authentication and authorization checks in place
+      - name: No security vulnerabilities (SQL injection, XSS, etc.)
+        url: https://owasp.org/www-project-top-ten/
+
+  - name: Functionality
+    items:
+      - name: Code implements all requirements correctly
+      - name: Edge cases are handled appropriately
+      - name: Error handling is comprehensive
+      - name: All tests pass and code coverage is adequate
+
+  - name: Performance
+    items:
+      - name: No obvious performance issues or bottlenecks
+      - name: Appropriate use of caching where beneficial
+      - name: Queries and database operations are optimized
+      - name: No memory leaks or excessive resource usage
+
+  - name: Documentation
+    items:
+      - name: Public APIs are documented
+      - name: Complex algorithms have explanatory comments
+      - name: README and other documentation is updated
+      - name: Changes are clearly described in the pull request 
