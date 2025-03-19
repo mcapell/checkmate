@@ -122,6 +122,79 @@
       display: flex;
       justify-content: flex-end;
     }
+    
+    /* Non-PR interface styles */
+    .non-pr-container {
+      padding: 10px;
+      text-align: center;
+    }
+    .non-pr-message {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 15px 0;
+    }
+    .non-pr-message h2 {
+      font-size: 16px;
+      margin: 10px 0;
+      color: #24292e;
+    }
+    .non-pr-message p {
+      font-size: 13px;
+      color: #57606a;
+      margin: 5px 0;
+    }
+    .non-pr-buttons {
+      display: flex;
+      justify-content: center;
+      margin-top: 15px;
+      gap: 10px;
+    }
+    .primary-btn {
+      background-color: #2ea44f;
+    }
+    .secondary-btn {
+      background-color: #6e7781;
+    }
+    
+    /* Sidebar toggle button */
+    .sidebar-toggle-container {
+      margin-top: 15px;
+      padding-top: 10px;
+      border-top: 1px solid #eaecef;
+      text-align: center;
+    }
+    .sidebar-toggle-btn {
+      background-color: #0969da;
+      padding: 8px 16px;
+    }
+    .sidebar-toggle-btn.active {
+      background-color: #cf222e;
+    }
+    .sidebar-toggle-btn:hover {
+      background-color: #0550af;
+    }
+    .sidebar-toggle-btn.active:hover {
+      background-color: #a40e26;
+    }
+    
+    /* Checklist styles */
+    .checklist-section {
+      margin-bottom: 15px;
+    }
+    .checklist-items {
+      margin-top: 5px;
+    }
+    .item-content {
+      padding: 5px 0;
+    }
+    .item-link {
+      color: #0969da;
+      text-decoration: none;
+    }
+    .item-link:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -152,6 +225,10 @@
     </div>
   </div>
 
+  <!-- Non-PR container (hidden by default, added in JS) -->
+  <div id="non-pr-container" class="non-pr-container" style="display: none;"></div>
+
+  <!-- Checklist container -->
   <div id="checklist-container">
     <!-- Checklist items will be dynamically added here -->
     <div class="empty-state">Loading checklist...</div>

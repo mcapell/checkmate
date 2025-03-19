@@ -3,8 +3,7 @@
  * Handles loading and saving user preferences
  */
 
-import { ExtensionOptions } from '../types';
-import { storageManager } from '../utils/storage';
+import { ExtensionOptions, ErrorCategory, ExtensionError } from '../types';
 
 /**
  * DOM Elements
@@ -17,35 +16,52 @@ const themeAutoRadio = document.getElementById('theme-auto') as HTMLInputElement
 const statusMessage = document.getElementById('status-message') as HTMLDivElement;
 
 /**
- * Load current options from storage and populate form fields
+ * Load current options from storage via background script
  */
 async function loadOptions(): Promise<void> {
   try {
-    const options = await storageManager.getOptions();
+    const response = await chrome.runtime.sendMessage({
+      action: 'getOptionsFromBackground'
+    });
     
-    // Set default template URL
-    defaultTemplateUrlInput.value = options.defaultTemplateUrl;
-    
-    // Set theme radio button
-    switch (options.theme) {
-      case 'light':
-        themeLightRadio.checked = true;
-        break;
-      case 'dark':
-        themeDarkRadio.checked = true;
-        break;
-      case 'auto':
-        themeAutoRadio.checked = true;
-        break;
+    if (response && response.success && response.options) {
+      const options = response.options;
+      
+      // Set default template URL
+      defaultTemplateUrlInput.value = options.defaultTemplateUrl || '';
+      
+      // Set theme radio button
+      switch (options.theme) {
+        case 'light':
+          themeLightRadio.checked = true;
+          break;
+        case 'dark':
+          themeDarkRadio.checked = true;
+          break;
+        case 'auto':
+          themeAutoRadio.checked = true;
+          break;
+      }
+    } else {
+      throw new Error(response?.error?.message || 'Failed to load options');
     }
   } catch (error) {
     console.error('Failed to load options:', error);
     showStatus('Error loading settings', 'error');
+    
+    // Report error to background script for logging
+    reportError({
+      category: ErrorCategory.STORAGE,
+      message: 'Failed to load options',
+      details: error,
+      timestamp: Date.now(),
+      recoverable: true
+    });
   }
 }
 
 /**
- * Save options to storage
+ * Save options to storage via background script
  */
 async function saveOptions(event: Event): Promise<void> {
   event.preventDefault();
@@ -70,13 +86,44 @@ async function saveOptions(event: Event): Promise<void> {
       theme
     };
     
-    // Save to storage
-    await storageManager.saveOptions(options);
-    showStatus('Settings saved successfully!', 'success');
+    // Save to storage via background script
+    const response = await chrome.runtime.sendMessage({
+      action: 'saveOptionsFromBackground',
+      data: {
+        options
+      }
+    });
+    
+    if (response && response.success) {
+      showStatus('Settings saved successfully!', 'success');
+    } else {
+      throw new Error(response?.error?.message || 'Failed to save options');
+    }
   } catch (error) {
     console.error('Failed to save options:', error);
     showStatus('Error saving settings', 'error');
+    
+    // Report error to background script for logging
+    reportError({
+      category: ErrorCategory.STORAGE,
+      message: 'Failed to save options',
+      details: error,
+      timestamp: Date.now(),
+      recoverable: true
+    });
   }
+}
+
+/**
+ * Report an error to the background script
+ */
+function reportError(error: ExtensionError): void {
+  chrome.runtime.sendMessage({
+    action: 'logError',
+    data: {
+      error
+    }
+  });
 }
 
 /**
@@ -91,6 +138,21 @@ function showStatus(message: string, type: 'success' | 'error'): void {
     statusMessage.className = 'status-message';
   }, 3000);
 }
+
+/**
+ * Listen for messages from background script
+ */
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'optionsUpdated') {
+    // Background script is telling us options were updated elsewhere
+    // Reload options to stay in sync
+    loadOptions();
+  }
+  
+  // Always respond to keep the message channel open
+  sendResponse({ success: true });
+  return true;
+});
 
 /**
  * Initialize the options page

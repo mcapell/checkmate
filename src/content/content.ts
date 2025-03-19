@@ -148,25 +148,49 @@ function toggleSidebar(): { success: boolean; isVisible?: boolean } {
   return { success: false };
 }
 
+// Send sidebar visibility change to background script
+function notifySidebarVisibilityChange(isVisible: boolean): void {
+  if (!activeSidebar) return;
+  
+  const repoInfo = {
+    owner: activeSidebar.getRepoOwner(),
+    repo: activeSidebar.getRepoName(),
+    prNumber: activeSidebar.getPrNumber()
+  };
+  
+  chrome.runtime.sendMessage({
+    action: 'sidebarVisibilityChanged',
+    data: {
+      isVisible,
+      repoInfo
+    }
+  });
+}
+
 // Listen for messages from the background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Content script received message:', message);
-  
-  if (!isGitHubPrPage(window.location.href) && 
-     (message.action === 'showSidebar' || message.action === 'hideSidebar')) {
-    // We're not on a PR page, send failure response
-    console.warn('Not on a PR page, cannot handle sidebar action');
-    sendResponse({ success: false, error: 'Not on a PR page' });
-    return true;
-  }
   
   // Type guard to ensure activeSidebar is treated as Sidebar type
   const sidebar = activeSidebar as Sidebar | null;
   
   switch (message.action) {
+    case 'checkIfPrPage':
+      // Background script is asking if we're on a PR page
+      const isPrPage = isGitHubPrPage(window.location.href);
+      sendResponse({ success: true, isPrPage });
+      break;
+      
     case 'showSidebar':
+      if (!isGitHubPrPage(window.location.href)) {
+        // We're not on a PR page, send failure response
+        sendResponse({ success: false, error: 'Not on a PR page' });
+        return true;
+      }
+      
       if (sidebar) {
         sidebar.show();
+        notifySidebarVisibilityChange(true);
         sendResponse({ success: true, isVisible: true });
       } else {
         // Try to initialize since we might have missed it
@@ -175,6 +199,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const reinitializedSidebar = activeSidebar as Sidebar | null;
         if (reinitializedSidebar) {
           reinitializedSidebar.show();
+          notifySidebarVisibilityChange(true);
           sendResponse({ success: true, isVisible: true });
         } else {
           sendResponse({ success: false, error: 'Sidebar not initialized' });
@@ -183,8 +208,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
       
     case 'hideSidebar':
+      if (!isGitHubPrPage(window.location.href)) {
+        // We're not on a PR page, send failure response
+        sendResponse({ success: false, error: 'Not on a PR page' });
+        return true;
+      }
+      
       if (sidebar) {
         sidebar.hide();
+        notifySidebarVisibilityChange(false);
         sendResponse({ success: true, isVisible: false });
       } else {
         sendResponse({ success: false, error: 'Sidebar not initialized' });
@@ -193,6 +225,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
     case 'toggleSidebar':
       const result = toggleSidebar();
+      if (result.success && result.isVisible !== undefined) {
+        notifySidebarVisibilityChange(result.isVisible);
+      }
       sendResponse(result);
       break;
       
@@ -203,6 +238,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } else {
         sendResponse({ success: false, error: 'No sidebar or content provided' });
       }
+      break;
+      
+    case 'tabUpdated':
+      // Background script is notifying us of a tab update
+      // This is helpful for SPA navigation in GitHub
+      if (message.url && message.url !== currentUrl) {
+        initOnPullRequestPage();
+      }
+      sendResponse({ success: true });
       break;
       
     default:

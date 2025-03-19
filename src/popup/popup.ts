@@ -19,11 +19,15 @@ let errorSuggestions: HTMLElement | null;
 let retryButton: HTMLElement | null;
 let refreshButton: HTMLElement | null;
 let newChecklistButton: HTMLElement | null;
+let goToPrButton: HTMLElement | null;
+let nonPrContainer: HTMLElement | null;
 
 // Current state
 let currentTemplate: ChecklistTemplate | null = null;
 let currentError: ExtensionError | null = null;
 let currentOperation: string | null = null;
+let currentTabId: number | null = null;
+let sidebarState: { isVisible: boolean; repoInfo?: any } | null = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize UI references
@@ -37,6 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
   retryButton = document.getElementById('retry-btn');
   refreshButton = document.getElementById('refresh-btn');
   newChecklistButton = document.getElementById('new-checklist-btn');
+  nonPrContainer = document.getElementById('non-pr-container');
+  goToPrButton = document.getElementById('go-to-pr-btn');
 
   // Set up event listeners
   if (newChecklistButton) {
@@ -50,10 +56,106 @@ document.addEventListener('DOMContentLoaded', () => {
   if (retryButton) {
     retryButton.addEventListener('click', retryLastOperation);
   }
+  
+  if (goToPrButton) {
+    goToPrButton.addEventListener('click', navigateToPrPage);
+  }
 
-  // Load existing checklists
-  loadChecklists();
+  // Get the current tab ID
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    if (tabs && tabs[0] && tabs[0].id) {
+      currentTabId = tabs[0].id;
+      
+      // Check if this is a GitHub PR page
+      checkIfPrPage(currentTabId)
+        .then(isPrPage => {
+          if (isPrPage) {
+            // This is a PR page, load the checklist
+            loadChecklists();
+          } else {
+            // This is not a PR page, show non-PR UI
+            showNonPrInterface();
+          }
+        })
+        .catch(error => {
+          // If there's an error, default to non-PR interface
+          console.error('Error checking if PR page:', error);
+          showNonPrInterface();
+        });
+    }
+  });
 });
+
+/**
+ * Check if the current tab is a GitHub PR page
+ */
+async function checkIfPrPage(tabId: number): Promise<boolean> {
+  try {
+    // Ask the content script if this is a PR page
+    const response = await chrome.tabs.sendMessage(tabId, { action: 'checkIfPrPage' });
+    return response && response.isPrPage === true;
+  } catch (error) {
+    console.error('Error checking if PR page:', error);
+    return false;
+  }
+}
+
+/**
+ * Show the non-PR interface
+ */
+function showNonPrInterface(): void {
+  if (!nonPrContainer || !checklistContainer || !loadingContainer || !errorContainer) return;
+  
+  // Hide other containers
+  checklistContainer.style.display = 'none';
+  loadingContainer.style.display = 'none';
+  errorContainer.style.display = 'none';
+  
+  // Create and show the non-PR container if it doesn't exist
+  if (!nonPrContainer) {
+    nonPrContainer = document.createElement('div');
+    nonPrContainer.id = 'non-pr-container';
+    nonPrContainer.className = 'non-pr-container';
+    document.body.appendChild(nonPrContainer);
+  }
+  
+  nonPrContainer.innerHTML = `
+    <div class="non-pr-message">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="32" height="32" fill="#6e7781">
+        <path fill-rule="evenodd" d="M7.177 3.073L9.573.677A.25.25 0 0110 .854v4.792a.25.25 0 01-.427.177L7.177 3.427a.25.25 0 010-.354zM3.75 2.5a.75.75 0 100 1.5.75.75 0 000-1.5zm-2.25.75a2.25 2.25 0 113 2.122v5.256a2.251 2.251 0 11-1.5 0V5.372A2.25 2.25 0 011.5 3.25zM11 2.5h-1V4h1a1 1 0 011 1v5.628a2.251 2.251 0 101.5 0V5A2.5 2.5 0 0011 2.5zm1 10.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0zM3.75 12a.75.75 0 100 1.5.75.75 0 000-1.5z"></path>
+      </svg>
+      <h2>Not a GitHub Pull Request</h2>
+      <p>This extension adds a checklist to GitHub pull requests.</p>
+      <p>Navigate to a GitHub PR to use the checklist feature.</p>
+      <div class="non-pr-buttons">
+        <button id="go-to-pr-btn" class="primary-btn">Go to GitHub</button>
+        <button id="open-options-btn" class="secondary-btn">Options</button>
+      </div>
+    </div>
+  `;
+  
+  nonPrContainer.style.display = 'block';
+  
+  // Add event listeners to the newly created buttons
+  document.getElementById('go-to-pr-btn')?.addEventListener('click', navigateToPrPage);
+  document.getElementById('open-options-btn')?.addEventListener('click', openOptionsPage);
+}
+
+/**
+ * Navigate to GitHub PR page
+ */
+function navigateToPrPage(): void {
+  chrome.tabs.create({ url: 'https://github.com/pulls' });
+  window.close(); // Close the popup
+}
+
+/**
+ * Open the options page
+ */
+function openOptionsPage(): void {
+  chrome.runtime.openOptionsPage();
+  window.close(); // Close the popup
+}
 
 /**
  * Set the UI state for loading
@@ -68,6 +170,10 @@ function setLoadingState(state: LoadingState): void {
     loadingContainer.style.display = 'flex';
     checklistContainer.style.display = 'none';
     errorContainer.style.display = 'none';
+    
+    if (nonPrContainer) {
+      nonPrContainer.style.display = 'none';
+    }
     
     if (state.message) {
       loadingMessage.textContent = state.message;
@@ -94,6 +200,10 @@ function displayError(error: ExtensionError): void {
   errorContainer.style.display = 'block';
   loadingContainer.style.display = 'none';
   checklistContainer.style.display = 'none';
+  
+  if (nonPrContainer) {
+    nonPrContainer.style.display = 'none';
+  }
   
   // Set error category and message
   errorTitle.textContent = `Error: ${getCategoryDisplayName(error.category)}`;
@@ -155,40 +265,113 @@ function getCategoryDisplayName(category: ErrorCategory): string {
  * Retry the last operation that failed
  */
 async function retryLastOperation(): Promise<void> {
-  if (!currentError || !currentOperation) return;
+  if (!currentError?.recoverable) return;
   
   switch (currentOperation) {
-    case 'loadChecklists':
-      loadChecklists();
+    case 'load':
+      await loadChecklists();
       break;
-    case 'refreshChecklist':
-      refreshChecklist();
+    case 'refresh':
+      await refreshChecklist();
+      break;
+    case 'create':
+      createNewChecklist();
       break;
     default:
-      // Default fallback to loading checklists
-      loadChecklists();
+      await loadChecklists(); // Default to reload
   }
 }
 
 /**
- * Create a new checklist
+ * Create a new checklist template
  */
 function createNewChecklist(): void {
-  console.log('Creating new checklist...');
-  // TODO: Implement checklist creation UI
+  // Create a new checklist or open a form
+  chrome.tabs.create({ url: chrome.runtime.getURL('options.html') + '#new-template' });
+  window.close(); // Close the popup
 }
 
 /**
  * Refresh the current checklist
  */
 async function refreshChecklist(): Promise<void> {
-  setLoadingState({ isLoading: true, message: 'Refreshing checklist...', operation: 'refreshChecklist' });
+  setLoadingState({
+    isLoading: true,
+    message: 'Refreshing checklist...',
+    operation: 'refresh'
+  });
   
   try {
-    const options = await storageManager.getOptions();
-    const template = await templateManager.fetchTemplate(options.defaultTemplateUrl);
+    // Force reload checklist data
+    await loadChecklists(true);
+    setLoadingState({ isLoading: false });
+  } catch (error) {
+    handleTemplateLoadError(error, 'Failed to refresh checklist');
+  }
+}
+
+/**
+ * Get active sidebar state from background script
+ */
+async function getActiveSidebarState(): Promise<{ isVisible: boolean; repoInfo?: any } | null> {
+  if (!currentTabId) return null;
+  
+  try {
+    const response = await chrome.runtime.sendMessage({
+      action: 'getActiveSidebarState',
+      data: { tabId: currentTabId }
+    });
+    
+    if (response && response.success) {
+      return response.state;
+    }
+  } catch (error) {
+    console.error('Error getting sidebar state:', error);
+  }
+  
+  return null;
+}
+
+/**
+ * Load checklists from storage
+ */
+async function loadChecklists(forceRefresh: boolean = false): Promise<void> {
+  setLoadingState({
+    isLoading: true,
+    message: 'Loading checklists...',
+    operation: 'load'
+  });
+  
+  try {
+    // Get the current sidebar state
+    sidebarState = await getActiveSidebarState();
+    
+    // Fetch default template from options
+    const optionsResponse = await chrome.runtime.sendMessage({
+      action: 'getOptionsFromBackground'
+    });
+    
+    if (!optionsResponse || !optionsResponse.success) {
+      throw new Error(optionsResponse?.error?.message || 'Failed to load options');
+    }
+    
+    const options = optionsResponse.options;
+    
+    // Use options to load template
+    let template: ChecklistTemplate;
+    
+    if (forceRefresh) {
+      template = await templateManager.fetchTemplate(options.defaultTemplateUrl);
+    } else {
+      template = await templateManager.getDefaultTemplate();
+    }
+    
     currentTemplate = template;
+    
+    // Render the template
     renderTemplate(template);
+    
+    // Hide loading state
     setLoadingState({ isLoading: false });
   } catch (error) {
     handleTemplateLoadError(error);
@@ -196,162 +379,186 @@ async function refreshChecklist(): Promise<void> {
 }
 
 /**
- * Load checklists from storage
- */
-async function loadChecklists(): Promise<void> {
-  setLoadingState({ isLoading: true, message: 'Loading checklist...', operation: 'loadChecklists' });
-  
-  try {
-    // Retrieve checklists from storage
-    const checklistState = await storageManager.getChecklistState();
-    const options = await storageManager.getOptions();
-    
-    if (!checklistState) {
-      // No checklist state, load the default template
-      try {
-        const defaultTemplate = await templateManager.getDefaultTemplate();
-        currentTemplate = defaultTemplate;
-        renderTemplate(defaultTemplate);
-        setLoadingState({ isLoading: false });
-      } catch (error) {
-        handleTemplateLoadError(error);
-      }
-    } else {
-      // Have a saved state, load template from the saved URL
-      try {
-        const template = await templateManager.fetchTemplate(checklistState.templateUrl);
-        currentTemplate = template;
-        renderTemplate(template);
-        setLoadingState({ isLoading: false });
-      } catch (error) {
-        // If we can't load the saved template, try the default template
-        try {
-          console.warn('Failed to load template from saved URL, trying default template');
-          const defaultTemplate = await templateManager.getDefaultTemplate();
-          currentTemplate = defaultTemplate;
-          renderTemplate(defaultTemplate);
-          setLoadingState({ isLoading: false });
-        } catch (fallbackError) {
-          // Both attempts failed
-          handleTemplateLoadError(fallbackError, 'Failed to load both saved and default templates');
-        }
-      }
-    }
-  } catch (error) {
-    // Storage error
-    handleTemplateLoadError(error);
-  }
-}
-
-/**
  * Handle template loading errors
- * 
- * @param error - The error that occurred
- * @param customMessage - Optional custom error message
  */
 function handleTemplateLoadError(error: unknown, customMessage?: string): void {
-  let extensionError: ExtensionError;
+  console.error('Template load error:', error);
   
-  if ((error as ExtensionError).category) {
-    // Already an ExtensionError
-    extensionError = error as ExtensionError;
-  } else if (error instanceof Error) {
-    if (error.message.includes('YAML')) {
-      extensionError = handleYamlError(
-        customMessage || 'Failed to parse template YAML',
-        error,
-        undefined,
-        true
-      );
-    } else if (error.message.includes('fetch') || error.message.includes('network')) {
-      extensionError = handleNetworkError(
-        customMessage || 'Failed to download template',
-        error,
-        undefined,
-        true
-      );
-    } else {
-      extensionError = handleTemplateError(
-        customMessage || 'Failed to load template',
-        error,
-        undefined,
-        true
-      );
-    }
+  let errorObj: ExtensionError;
+  
+  if ((error as any)?.name === 'YAMLException') {
+    errorObj = handleYamlError(
+      'Failed to parse YAML template',
+      error,
+      undefined,
+      true
+    );
+  } else if ((error as Error)?.message?.includes('network')) {
+    errorObj = handleNetworkError(
+      'Failed to download template',
+      error,
+      undefined,
+      true
+    );
+  } else if ((error as ExtensionError)?.category === ErrorCategory.TEMPLATE) {
+    // Keep the original error if it's already an ExtensionError
+    errorObj = error as ExtensionError;
   } else {
-    extensionError = handleUnknownError(
-      customMessage || 'An unknown error occurred while loading the template',
+    errorObj = handleUnknownError(
+      'An unknown error occurred while loading the template',
       error,
       undefined,
       true
     );
   }
   
-  displayError(extensionError);
+  // Override with custom message if provided
+  if (customMessage) {
+    errorObj.message = customMessage;
+  }
+  
+  // Display the error in the UI
+  displayError(errorObj);
+  
+  // Report error to background script for logging
+  chrome.runtime.sendMessage({
+    action: 'logError',
+    data: {
+      error: errorObj
+    }
+  });
 }
 
 /**
  * Render a template in the UI
- * 
- * @param template - The template to render
  */
 function renderTemplate(template: ChecklistTemplate): void {
   if (!checklistContainer) return;
   
+  // Clear existing content
   checklistContainer.innerHTML = '';
   
-  // Create a title for the default template
-  const title = document.createElement('h2');
-  title.textContent = 'Code Review Checklist';
-  title.style.fontSize = '14px';
-  title.style.marginTop = '10px';
-  title.style.marginBottom = '10px';
-  checklistContainer.appendChild(title);
+  if (template.sections.length === 0) {
+    checklistContainer.innerHTML = '<div class="empty-state">No checklist items found. Create a new checklist template or select a different one.</div>';
+    return;
+  }
   
   // Render each section
-  template.sections.forEach(section => {
-    // Ensure checklistContainer exists before proceeding
-    if (!checklistContainer) return;
+  template.sections.forEach((section, sectionIndex) => {
+    const sectionElement = document.createElement('div');
+    sectionElement.className = 'checklist-section';
     
     // Create section header
-    const sectionHeader = document.createElement('div');
-    sectionHeader.className = 'section-header';
-    sectionHeader.textContent = section.name;
-    sectionHeader.style.fontWeight = 'bold';
-    sectionHeader.style.marginTop = '10px';
-    sectionHeader.style.marginBottom = '5px';
+    const headerElement = document.createElement('h2');
+    headerElement.className = 'section-header';
+    headerElement.textContent = section.name;
+    sectionElement.appendChild(headerElement);
     
-    checklistContainer.appendChild(sectionHeader);
+    // Create section items container
+    const itemsContainer = document.createElement('div');
+    itemsContainer.className = 'checklist-items';
     
-    // Create section items
-    section.items.forEach(item => {
-      // Ensure checklistContainer exists before proceeding
-      if (!checklistContainer) return;
-      
+    // Add each checklist item
+    section.items.forEach((item, itemIndex) => {
       const itemElement = document.createElement('div');
       itemElement.className = 'checklist-item';
       
-      // Create item name
-      const itemName = document.createElement('span');
-      itemName.textContent = item.name;
-      itemName.style.fontSize = '12px';
+      const itemContent = document.createElement('div');
+      itemContent.className = 'item-content';
       
-      itemElement.appendChild(itemName);
-      
-      // Add URL link if available
+      // Create item name (with link if URL provided)
       if (item.url) {
-        const urlLink = document.createElement('a');
-        urlLink.href = item.url;
-        urlLink.textContent = '📄';
-        urlLink.title = 'View documentation';
-        urlLink.target = '_blank';
-        urlLink.style.marginLeft = '5px';
-        urlLink.style.textDecoration = 'none';
-        
-        itemElement.appendChild(urlLink);
+        const linkElement = document.createElement('a');
+        linkElement.href = item.url;
+        linkElement.target = '_blank';
+        linkElement.textContent = item.name;
+        linkElement.className = 'item-link';
+        itemContent.appendChild(linkElement);
+      } else {
+        itemContent.textContent = item.name;
       }
       
-      checklistContainer.appendChild(itemElement);
+      itemElement.appendChild(itemContent);
+      itemsContainer.appendChild(itemElement);
     });
+    
+    sectionElement.appendChild(itemsContainer);
+    checklistContainer.appendChild(sectionElement);
   });
-} 
+  
+  // Add sidebar toggle
+  if (currentTabId && sidebarState) {
+    const toggleContainer = document.createElement('div');
+    toggleContainer.className = 'sidebar-toggle-container';
+    
+    const toggleButton = document.createElement('button');
+    toggleButton.className = `sidebar-toggle-btn ${sidebarState.isVisible ? 'active' : ''}`;
+    toggleButton.textContent = sidebarState.isVisible ? 'Hide Sidebar' : 'Show Sidebar';
+    
+    toggleButton.addEventListener('click', () => toggleSidebar(currentTabId!));
+    
+    toggleContainer.appendChild(toggleButton);
+    checklistContainer.appendChild(toggleContainer);
+  }
+}
+
+/**
+ * Toggle the sidebar in the content script
+ */
+async function toggleSidebar(tabId: number): Promise<void> {
+  try {
+    const response = await chrome.tabs.sendMessage(tabId, { action: 'toggleSidebar' });
+    
+    if (response && response.success) {
+      // Update our local state
+      if (sidebarState) {
+        sidebarState.isVisible = !!response.isVisible;
+      }
+      
+      // Update UI
+      const toggleButton = document.querySelector('.sidebar-toggle-btn');
+      if (toggleButton) {
+        if (response.isVisible) {
+          toggleButton.textContent = 'Hide Sidebar';
+          toggleButton.classList.add('active');
+        } else {
+          toggleButton.textContent = 'Show Sidebar';
+          toggleButton.classList.remove('active');
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to toggle sidebar:', error);
+    
+    // Display error
+    displayError({
+      category: ErrorCategory.GITHUB,
+      message: 'Failed to toggle sidebar. Try refreshing the page.',
+      details: error,
+      timestamp: Date.now(),
+      recoverable: false
+    });
+  }
+}
+
+// Listen for messages from background script
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'sidebarStateChanged') {
+    // Background script is telling us sidebar state has changed
+    if (message.data && message.data.tabId === currentTabId) {
+      sidebarState = {
+        isVisible: message.data.isVisible,
+        repoInfo: message.data.repoInfo
+      };
+      
+      // Update UI if template is rendered
+      if (currentTemplate) {
+        renderTemplate(currentTemplate);
+      }
+    }
+  }
+  
+  // Always respond to keep the message channel open
+  sendResponse({ success: true });
+  return true;
+}); 
