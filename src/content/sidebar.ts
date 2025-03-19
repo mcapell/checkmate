@@ -76,8 +76,9 @@ export class Sidebar {
    * Creates a new sidebar instance
    * 
    * @param repoInfo - Repository information for the current PR
+   * @param initialTemplate - Optional initial template to use
    */
-  constructor(repoInfo: RepoInfo) {
+  constructor(repoInfo: RepoInfo, initialTemplate?: ChecklistTemplate) {
     this.repoInfo = repoInfo;
     this.container = this.createContainer();
     this.sidebar = this.createSidebar();
@@ -86,6 +87,11 @@ export class Sidebar {
     this.sidebar.appendChild(this.createHeader());
     this.sidebar.appendChild(this.content);
     this.container.appendChild(this.sidebar);
+
+    // Set the initial template if provided
+    if (initialTemplate) {
+      this.template = initialTemplate;
+    }
 
     // Generate state key for the current PR
     this.stateKey = this.generateStateKey();
@@ -239,6 +245,17 @@ export class Sidebar {
     try {
       // Apply the theme based on user preferences
       await this.applyTheme();
+      
+      // Load template only if we don't already have one
+      if (!this.template) {
+        await this.loadTemplate();
+      } else {
+        console.log('Using pre-loaded template:', this.template);
+        // Still need to load saved state
+        await this.loadState();
+        // Render the template
+        this.renderTemplate();
+      }
     } catch (error) {
       console.error('Failed to initialize sidebar:', error);
     }
@@ -346,8 +363,10 @@ export class Sidebar {
         console.log('Firefox workaround applied for sidebar show()');
       }
       
-      // Load template and state when showing sidebar
-      this.loadTemplate();
+      // Only load template if we don't already have one
+      if (!this.template) {
+        this.loadTemplate();
+      }
       
       // Notify background script
       this.notifyVisibilityChange(true);
@@ -440,9 +459,28 @@ export class Sidebar {
       // Generate state key for this PR
       this.stateKey = this.generateStateKey();
       
-      // Fetch the default template
-      console.log('Loading default template from extension resources');
-      this.template = await templateManager.getDefaultTemplate();
+      // Get options to check if there's a custom template URL
+      const options = await storageManager.getOptions();
+      console.log('Options loaded:', options);
+      
+      if (options && options.defaultTemplateUrl) {
+        // Load from custom URL
+        console.log(`Attempting to load template from custom URL: ${options.defaultTemplateUrl}`);
+        try {
+          this.template = await templateManager.fetchTemplate(options.defaultTemplateUrl);
+          console.log('Successfully loaded template from custom URL:', options.defaultTemplateUrl);
+        } catch (templateError) {
+          console.error('Error loading custom template:', templateError);
+          // Fall back to default template if custom template fails
+          console.log('Falling back to default template...');
+          this.template = await templateManager.getDefaultTemplate();
+        }
+      } else {
+        // Fetch the default template
+        console.log('No custom URL found, loading default template');
+        this.template = await templateManager.getDefaultTemplate();
+      }
+      
       console.log('Template loaded successfully:', this.template);
       
       // Load the saved state if available

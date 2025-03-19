@@ -10,6 +10,7 @@ import {
   getCurrentPrIdentifier,
   RepoInfo 
 } from '../utils/github-utils';
+import { ChecklistTemplate } from '../types';
 import { Sidebar } from './sidebar';
 
 console.log('GitHub Code Review Checklist extension loaded');
@@ -68,7 +69,7 @@ function initOnPullRequestPage() {
 }
 
 // Function to inject sidebar into the page
-function injectSidebar(repoInfo: RepoInfo): void {
+function injectSidebar(repoInfo: RepoInfo, template?: ChecklistTemplate): void {
   // If we already have a sidebar for this PR, don't reinject
   if (activeSidebar && 
       activeSidebar.getRepoOwner() === repoInfo.owner && 
@@ -83,8 +84,8 @@ function injectSidebar(repoInfo: RepoInfo): void {
   // Clean up any existing sidebar
   cleanupExistingSidebar();
   
-  // Create and inject new sidebar
-  activeSidebar = new Sidebar(repoInfo);
+  // Create and inject new sidebar with template if provided
+  activeSidebar = new Sidebar(repoInfo, template);
   activeSidebar.inject();
   
   // Initial state - hide the sidebar

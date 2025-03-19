@@ -119,6 +119,13 @@ export async function initializeContentScript() {
     // Get extension options
     const options = await storageManager.getOptions();
     
+    // Log the custom template URL if present
+    if (options.defaultTemplateUrl) {
+      console.log(`Using custom template URL: ${options.defaultTemplateUrl}`);
+    } else {
+      console.log('No custom template URL configured, using default template');
+    }
+    
     // Load template
     const template = await templateManager.loadTemplate(options.defaultTemplateUrl);
     
@@ -129,7 +136,7 @@ export async function initializeContentScript() {
       return;
     }
     
-    // Create sidebar with template
+    // Create sidebar with template using the updated sidebar-manager API
     await sidebarManager.createSidebar(template, prInfo);
     
     // Load saved state for this PR

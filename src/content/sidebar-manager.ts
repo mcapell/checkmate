@@ -26,6 +26,8 @@ class SidebarManager {
       return;
     }
     
+    console.log('Creating sidebar with template:', template);
+    
     // Get user preferences
     const options = await storageManager.getOptions();
     
