@@ -11,10 +11,9 @@ export interface ExtensionOptions {
 }
 
 /**
- * Checklist template
+ * Template Structures
  */
-export interface Template {
-  title: string;
+export interface ChecklistTemplate {
   sections: Section[];
 }
 
@@ -22,7 +21,7 @@ export interface Template {
  * Template section
  */
 export interface Section {
-  title: string;
+  name: string;
   items: ChecklistItem[];
 }
 
@@ -30,24 +29,29 @@ export interface Section {
  * Checklist item
  */
 export interface ChecklistItem {
-  text: string;
+  name: string;
+  url?: string;
   required?: boolean;
 }
 
 /**
- * Checklist item state
+ * Item state
  */
-export interface ChecklistItemState {
+export interface ItemState {
   checked: boolean;
-  notes: string;
+  needsAttention: boolean;
+  notes?: string;
 }
 
 /**
  * Checklist state for a PR
  */
 export interface ChecklistState {
-  items: Record<string, ChecklistItemState>;
-  timestamp: number;
+  items: Record<string, ItemState>;
+  sections: Record<string, boolean>;
+  lastUpdated: number;
+  templateUrl: string;
+  templateVersion?: string;
 }
 
 /**
@@ -64,22 +68,6 @@ export interface PRInfo {
   owner: string;
   repo: string;
   prNumber: number;
-}
-
-/**
- * Core data structure definitions for the Checkmate extension
- */
-
-/**
- * Template Structures
- */
-export interface ChecklistTemplate {
-  sections: Section[];
-}
-
-export interface ItemState {
-  checked: boolean;
-  needsAttention: boolean;
 }
 
 /**
@@ -110,4 +98,7 @@ export interface LoadingState {
   isLoading: boolean;
   message?: string;
   operation?: string;
-} 
+}
+
+// Legacy types for backwards compatibility - can be removed later
+export type Template = ChecklistTemplate; 

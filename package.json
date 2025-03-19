@@ -4,13 +4,17 @@
   "description": "A GitHub extension that adds a customizable checklist to pull request reviews",
   "scripts": {
     "build": "webpack --config webpack.config.js",
+    "build:prod": "webpack --config webpack.config.js --mode=production",
     "dev": "webpack --config webpack.config.js --watch",
     "test": "jest",
     "test:unit": "jest tests/unit",
     "test:integration": "jest tests/integration",
     "test:e2e": "jest tests/e2e",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "package": "node scripts/build-release.js",
+    "verify": "node scripts/verify-package.js",
+    "release": "npm run build:prod && npm run package && npm run verify"
   },
   "keywords": [
     "github",
@@ -24,6 +28,8 @@
     "@types/chrome": "^0.0.246",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.11.0",
+    "adm-zip": "^0.5.16",
+    "archiver": "^6.0.1",
     "copy-webpack-plugin": "^11.0.0",
     "esbuild": "^0.19.11",
     "jest": "^29.7.0",
