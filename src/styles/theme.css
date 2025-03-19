@@ -1,0 +1,98 @@
+/**
+ * Theme variables for GitHub Code Review Checklist
+ */
+
+:root {
+  /* Base theme variables for light mode */
+  --checkmate-background: var(--color-canvas-default, #ffffff);
+  --checkmate-background-subtle: var(--color-canvas-subtle, #f6f8fa);
+  --checkmate-text: var(--color-fg-default, #24292f);
+  --checkmate-text-secondary: var(--color-fg-muted, #57606a);
+  --checkmate-border: var(--color-border-default, #d0d7de);
+  --checkmate-shadow: rgba(0, 0, 0, 0.1);
+  
+  /* Action colors */
+  --checkmate-primary: var(--color-accent-fg, #0969da);
+  --checkmate-primary-hover: var(--color-accent-emphasis, #0550ae);
+  --checkmate-success: var(--color-success-fg, #1a7f37);
+  --checkmate-danger: var(--color-danger-fg, #cf222e);
+  --checkmate-warning: var(--color-attention-fg, #9a6700);
+  
+  /* Button styles */
+  --checkmate-button-bg: var(--color-btn-bg, #f6f8fa);
+  --checkmate-button-border: var(--color-btn-border, #1b1f2426);
+  --checkmate-button-hover-bg: var(--color-btn-hover-bg, #f3f4f6);
+  --checkmate-button-text: var(--color-btn-text, #24292f);
+  
+  /* Item styles */
+  --checkmate-item-hover: var(--color-neutral-muted, rgba(175, 184, 193, 0.2));
+  --checkmate-item-active: var(--color-accent-subtle, #ddf4ff);
+  --checkmate-attention-bg: var(--color-attention-subtle, #fff8c5);
+  
+  /* Pulse animation color */
+  --checkmate-pulse-color: rgba(9, 105, 218, 0.3);
+}
+
+/* Dark theme variables */
+[data-color-mode="dark"], 
+html[data-color-mode="dark"],
+.checkmate-theme-dark {
+  --checkmate-background: var(--color-canvas-default, #0d1117);
+  --checkmate-background-subtle: var(--color-canvas-subtle, #161b22);
+  --checkmate-text: var(--color-fg-default, #c9d1d9);
+  --checkmate-text-secondary: var(--color-fg-muted, #8b949e);
+  --checkmate-border: var(--color-border-default, #30363d);
+  --checkmate-shadow: rgba(0, 0, 0, 0.3);
+  
+  /* Action colors */
+  --checkmate-primary: var(--color-accent-fg, #58a6ff);
+  --checkmate-primary-hover: var(--color-accent-emphasis, #79c0ff);
+  --checkmate-success: var(--color-success-fg, #3fb950);
+  --checkmate-danger: var(--color-danger-fg, #f85149);
+  --checkmate-warning: var(--color-attention-fg, #d29922);
+  
+  /* Button styles */
+  --checkmate-button-bg: var(--color-btn-bg, #21262d);
+  --checkmate-button-border: var(--color-btn-border, #30363d);
+  --checkmate-button-hover-bg: var(--color-btn-hover-bg, #30363d);
+  --checkmate-button-text: var(--color-btn-text, #c9d1d9);
+  
+  /* Item styles */
+  --checkmate-item-hover: var(--color-neutral-muted, rgba(110, 118, 129, 0.4));
+  --checkmate-item-active: var(--color-accent-subtle, rgba(56, 139, 253, 0.15));
+  --checkmate-attention-bg: var(--color-attention-subtle, rgba(187, 128, 9, 0.15));
+  
+  /* Pulse animation color */
+  --checkmate-pulse-color: rgba(88, 166, 255, 0.3);
+}
+
+/* Light theme force override */
+.checkmate-theme-light {
+  --checkmate-background: var(--color-canvas-default, #ffffff);
+  --checkmate-background-subtle: var(--color-canvas-subtle, #f6f8fa);
+  --checkmate-text: var(--color-fg-default, #24292f);
+  --checkmate-text-secondary: var(--color-fg-muted, #57606a);
+  --checkmate-border: var(--color-border-default, #d0d7de);
+  --checkmate-shadow: rgba(0, 0, 0, 0.1);
+  
+  /* Action colors */
+  --checkmate-primary: var(--color-accent-fg, #0969da);
+  --checkmate-primary-hover: var(--color-accent-emphasis, #0550ae);
+  --checkmate-success: var(--color-success-fg, #1a7f37);
+  --checkmate-danger: var(--color-danger-fg, #cf222e);
+  --checkmate-warning: var(--color-attention-fg, #9a6700);
+  
+  /* Button styles */
+  --checkmate-button-bg: var(--color-btn-bg, #f6f8fa);
+  --checkmate-button-border: var(--color-btn-border, #1b1f2426);
+  --checkmate-button-hover-bg: var(--color-btn-hover-bg, #f3f4f6);
+  --checkmate-button-text: var(--color-btn-text, #24292f);
+  
+  /* Item styles */
+  --checkmate-item-hover: var(--color-neutral-muted, rgba(175, 184, 193, 0.2));
+  --checkmate-item-active: var(--color-accent-subtle, #ddf4ff);
+  --checkmate-attention-bg: var(--color-attention-subtle, #fff8c5);
+  
+  /* Pulse animation color */
+  --checkmate-pulse-color: rgba(9, 105, 218, 0.3);
+} 

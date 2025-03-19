@@ -34,6 +34,7 @@ module.exports = {
         { from: 'src/options/options.html', to: 'options.html' },
         { from: 'src/options/options.css', to: 'options.css' },
         { from: 'src/content/sidebar.css', to: 'content/sidebar.css' },
+        { from: 'src/styles/theme.css', to: 'styles/theme.css' },
       ],
     }),
   ],

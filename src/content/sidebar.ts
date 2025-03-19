@@ -8,6 +8,7 @@ import { RepoInfo } from '../utils/github-utils';
 import { ChecklistTemplate, Section, ChecklistItem, ChecklistState, ItemState } from '../types';
 import { templateManager } from '../utils/template';
 import { storageManager } from '../utils/storage';
+import { themeManager } from '../utils/theme';
 import { generatePrIdentifier } from '../utils/github-utils';
 
 // CSS class names for styling and element selection
@@ -85,6 +86,9 @@ export class Sidebar {
 
     // Generate state key for the current PR
     this.stateKey = this.generateStateKey();
+    
+    // Initialize the sidebar
+    this.initialize();
   }
 
   /**
@@ -121,6 +125,7 @@ export class Sidebar {
   private createContainer(): HTMLElement {
     const container = document.createElement('div');
     container.className = CSS_CLASSES.SIDEBAR_CONTAINER;
+    container.classList.add(CSS_CLASSES.SIDEBAR_COLLAPSED);
     return container;
   }
 
@@ -159,7 +164,7 @@ export class Sidebar {
     
     // Close button
     const closeButton = document.createElement('button');
-    closeButton.innerHTML = '×';
+    closeButton.textContent = '✕';
     closeButton.title = 'Close';
     closeButton.addEventListener('click', () => this.hide());
     
@@ -180,44 +185,79 @@ export class Sidebar {
   }
 
   /**
-   * Creates the toggle button to show/hide the sidebar
+   * Create the toggle button for the sidebar
    */
   private createToggleButton(): HTMLElement {
-    const button = document.createElement('button');
-    button.className = CSS_CLASSES.SIDEBAR_TOGGLE;
-    button.textContent = 'Checkmate';
-    button.title = 'Toggle code review checklist';
-    button.addEventListener('click', () => this.toggle());
-    return button;
+    const toggleButton = document.createElement('button');
+    toggleButton.className = CSS_CLASSES.SIDEBAR_TOGGLE;
+    toggleButton.title = 'Toggle checklist sidebar';
+    toggleButton.innerHTML = '📋';
+    toggleButton.addEventListener('click', () => this.toggle());
+    return toggleButton;
+  }
+  
+  /**
+   * Initialize the sidebar and load template data
+   */
+  private async initialize(): Promise<void> {
+    try {
+      // Apply the theme based on user preferences
+      await this.applyTheme();
+    } catch (error) {
+      console.error('Failed to initialize sidebar:', error);
+    }
+  }
+  
+  /**
+   * Apply theme based on user preference
+   */
+  private async applyTheme(): Promise<void> {
+    try {
+      await themeManager.applyTheme(this.container);
+    } catch (error) {
+      console.error('Failed to apply theme:', error);
+    }
   }
 
   /**
-   * Injects the sidebar and toggle button into the GitHub UI
+   * Inject the sidebar into the page
    */
   public inject(): void {
-    // Add toggle button to GitHub header actions
+    // Inject the sidebar container
+    document.body.appendChild(this.container);
+    
+    // Inject the toggle button
     const githubHeader = document.querySelector(`.${CSS_CLASSES.GITHUB_HEADER}`);
     if (githubHeader) {
       githubHeader.appendChild(this.createToggleButton());
     } else {
-      console.warn('GitHub header actions not found, toggle button not injected');
+      // If we can't find the GitHub header, inject the toggle button next to the sidebar
+      document.body.appendChild(this.createToggleButton());
     }
-
-    // Add sidebar container to document body
-    document.body.appendChild(this.container);
     
-    // Load styles
+    // Inject the custom styles
     this.injectStyles();
   }
-
+  
   /**
-   * Injects the CSS for the sidebar
+   * Inject the CSS styles for the sidebar
    */
   private injectStyles(): void {
-    const styleLink = document.createElement('link');
-    styleLink.rel = 'stylesheet';
-    styleLink.href = chrome.runtime.getURL('content/sidebar.css');
-    document.head.appendChild(styleLink);
+    // Load CSS files from extension resources
+    const sidebarStyles = chrome.runtime.getURL('content/sidebar.css');
+    const themeStyles = chrome.runtime.getURL('styles/theme.css');
+    
+    // Create link elements for styles
+    const addStylesheet = (href: string) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      document.head.appendChild(link);
+    };
+    
+    // Add stylesheets to the page
+    addStylesheet(sidebarStyles);
+    addStylesheet(themeStyles);
   }
 
   /**
