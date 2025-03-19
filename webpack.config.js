@@ -8,6 +8,7 @@ module.exports = {
     background: path.resolve(__dirname, 'src/background/background.ts'),
     content: path.resolve(__dirname, 'src/content/content.ts'),
     popup: path.resolve(__dirname, 'src/popup/popup.ts'),
+    options: path.resolve(__dirname, 'src/options/options.ts'),
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -30,6 +31,8 @@ module.exports = {
       patterns: [
         { from: 'public', to: '.' },
         { from: 'src/popup/popup.html', to: 'popup.html' },
+        { from: 'src/options/options.html', to: 'options.html' },
+        { from: 'src/options/options.css', to: 'options.css' },
         { from: 'src/content/sidebar.css', to: 'content/sidebar.css' },
       ],
     }),

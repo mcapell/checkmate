@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub Code Review Checklist Options</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <h1>GitHub Code Review Checklist Settings</h1>
+    
+    <form id="options-form">
+      <div class="option-group">
+        <h2>Theme Preference</h2>
+        <div class="radio-group">
+          <label>
+            <input type="radio" name="theme" value="light" id="theme-light">
+            Light Mode
+          </label>
+          <label>
+            <input type="radio" name="theme" value="dark" id="theme-dark">
+            Dark Mode
+          </label>
+          <label>
+            <input type="radio" name="theme" value="auto" id="theme-auto">
+            Auto (Follow System)
+          </label>
+        </div>
+      </div>
+
+      <div class="option-group">
+        <h2>Default Template URL</h2>
+        <div class="input-group">
+          <input type="text" id="default-template-url" placeholder="https://github.com/owner/repo/template.yaml">
+          <p class="help-text">URL to fetch your checklist template from</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" id="save-btn">Save Settings</button>
+        <div id="status-message" class="status-message"></div>
+      </div>
+    </form>
+  </div>
+  
+  <script src="options.js"></script>
+</body>
+</html> 
