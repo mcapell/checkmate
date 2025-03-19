@@ -7,7 +7,7 @@ declare const expect: any;
 declare const jest: any;
 
 import { storageManager } from '../../src/utils/storage';
-import { StorageState, ExtensionOptions } from '../../src/types';
+import { StorageState, ExtensionOptions, ChecklistState, ItemState } from '../../src/types';
 import { mockChromeStorage } from '../mocks/storage-mock';
 import { getBrowserAPI, promisify } from '../../src/utils/browser-detection';
 
@@ -30,14 +30,19 @@ global.chrome = {
 
 describe('Storage Manager', () => {
   // Sample data for testing
-  const sampleChecklistState: StorageState = {
-    'https://github.com/owner/repo/pull/123': {
-      items: {
-        'item1': { checked: true, notes: 'Test note 1' },
-        'item2': { checked: false, notes: 'Test note 2' },
-      },
-      timestamp: 1647609600000 // Example timestamp
-    }
+  const samplePrState: ChecklistState = {
+    items: {
+      'item1': { checked: true, needsAttention: true, notes: 'Test note 1' },
+      'item2': { checked: false, needsAttention: false, notes: 'Test note 2' },
+    },
+    sections: { 'section1': true, 'section2': false },
+    lastUpdated: 1647609600000, // Example timestamp
+    templateUrl: 'https://example.com/template.yaml',
+    templateVersion: '1.0.0'
+  };
+  
+  const sampleStorageState: StorageState = {
+    'https://github.com/owner/repo/pull/123': samplePrState
   };
   
   const sampleOptions: ExtensionOptions = {
@@ -98,7 +103,7 @@ describe('Storage Manager', () => {
     (promisify as jest.Mock).mockResolvedValue(undefined);
     
     // Execute the method
-    await storageManager.saveChecklistState(sampleChecklistState);
+    await storageManager.saveChecklistState(sampleStorageState);
     
     // We just verify the test runs without errors
     expect(true).toBe(true);

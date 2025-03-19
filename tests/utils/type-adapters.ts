@@ -7,51 +7,44 @@
  */
 
 import { 
-  ChecklistItem as NewChecklistItem, 
-  Section as NewSection,
-  Template as NewTemplate,
+  ChecklistItem,
+  Section,
   ChecklistTemplate,
-  ChecklistItemState as NewChecklistItemState,
-  ChecklistState as NewChecklistState,
-  StorageState as NewStorageState,
-  ItemState
+  ItemState,
+  ChecklistState,
+  StorageState,
 } from '../../src/types';
 
 /**
  * Legacy type definitions for backward compatibility
  */
 export interface LegacySection {
-  name: string;
+  title: string;
   items: LegacyChecklistItem[];
 }
 
 export interface LegacyChecklistItem {
-  name: string;
+  text: string;
   url?: string;
   required?: boolean;
 }
 
-export interface LegacyChecklistItemState {
+export interface LegacyItemState {
   checked: boolean;
-  needsAttention: boolean;
-  notes?: string;
+  notes: string;
 }
 
 export interface LegacyChecklistState {
-  items: Record<string, LegacyChecklistItemState>;
-  sections: Record<string, boolean>;
-  lastUpdated: number;
-  templateUrl: string;
-  templateVersion: string;
+  items: Record<string, LegacyItemState>;
+  timestamp: number;
 }
 
 /**
  * Adapter for old-style templates used in DefaultTemplateManager tests
  * Converts between name-based items (DefaultTemplateManager) and text-based items (templateManager)
  */
-export function adaptDefaultTemplateToTemplateManager(oldTemplate: ChecklistTemplate): NewTemplate {
+export function adaptDefaultTemplateToTemplateManager(oldTemplate: ChecklistTemplate): ChecklistTemplate {
   return {
-    title: 'Code Review Checklist', // Default title since ChecklistTemplate doesn't have one
     sections: oldTemplate.sections.map(section => adaptSection(section))
   };
 }
@@ -59,9 +52,9 @@ export function adaptDefaultTemplateToTemplateManager(oldTemplate: ChecklistTemp
 /**
  * Adapter for old-style sections used in DefaultTemplateManager tests
  */
-export function adaptSection(oldSection: any): NewSection {
+export function adaptSection(oldSection: any): Section {
   return {
-    title: oldSection.name || 'Unnamed Section',
+    name: oldSection.title || oldSection.name || 'Unnamed Section',
     items: Array.isArray(oldSection.items) 
       ? oldSection.items.map((item: any) => adaptChecklistItem(item))
       : []
@@ -71,11 +64,11 @@ export function adaptSection(oldSection: any): NewSection {
 /**
  * Adapter for old-style checklist items used in DefaultTemplateManager tests
  */
-export function adaptChecklistItem(oldItem: any): NewChecklistItem {
-  if (!oldItem) return { text: 'Unknown Item' };
+export function adaptChecklistItem(oldItem: any): ChecklistItem {
+  if (!oldItem) return { name: 'Unknown Item' };
   
   return {
-    text: oldItem.name || 'Unknown Item',
+    name: oldItem.text || oldItem.name || 'Unknown Item',
     required: oldItem.required || false,
     // Preserve any other properties that might be present
     ...(oldItem.url ? { url: oldItem.url } : {})
@@ -83,53 +76,54 @@ export function adaptChecklistItem(oldItem: any): NewChecklistItem {
 }
 
 /**
- * Adapter for new style ChecklistItemState to legacy ItemState
+ * Adapter for new style ItemState to legacy ItemState
  */
-export function adaptChecklistItemStateToItemState(state: NewChecklistItemState): ItemState {
+export function adaptItemStateToLegacyItemState(state: ItemState): LegacyItemState {
   return {
     checked: state.checked,
-    needsAttention: false // Default value, as new type doesn't have this property
+    notes: state.notes || ''
   };
 }
 
 /**
- * Adapter for legacy ItemState to new ChecklistItemState
+ * Adapter for legacy ItemState to new ItemState
  */
-export function adaptItemStateToChecklistItemState(state: ItemState): NewChecklistItemState {
+export function adaptLegacyItemStateToItemState(state: LegacyItemState): ItemState {
   return {
     checked: state.checked,
-    notes: '' // Default value, as old type doesn't have this property
+    needsAttention: false, // Default value as legacy doesn't have this field
+    notes: state.notes
   };
 }
 
 /**
  * Adapter for new-style sections to legacy sections
  */
-export function adaptNewSectionToLegacy(section: NewSection): LegacySection {
+export function adaptSectionToLegacySection(section: Section): LegacySection {
   return {
-    name: section.title,
+    title: section.name,
     items: section.items.map(item => ({
-      name: item.text,
+      text: item.name,
       required: item.required,
       // Add url property if it exists in the original item
-      ...(item as any).url ? { url: (item as any).url } : {}
+      ...(item.url ? { url: item.url } : {})
     }))
   };
 }
 
 /**
- * Adapter for new style Template to legacy ChecklistTemplate
+ * Adapter for new style ChecklistTemplate to legacy format
  */
-export function adaptNewTemplateToLegacyTemplate(template: NewTemplate): { sections: LegacySection[] } {
+export function adaptTemplateToLegacyFormat(template: ChecklistTemplate): { sections: LegacySection[] } {
   return {
-    sections: template.sections.map(section => adaptNewSectionToLegacy(section))
+    sections: template.sections.map(section => adaptSectionToLegacySection(section))
   };
 }
 
 /**
- * Create a mock for the legacy ChecklistState
+ * Create a mock for the ChecklistState
  */
-export function createMockLegacyState(): LegacyChecklistState {
+export function createMockChecklistState(): ChecklistState {
   return {
     items: {
       'item-1': { checked: true, needsAttention: false, notes: 'Test note' },

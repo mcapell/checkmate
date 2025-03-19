@@ -252,39 +252,103 @@ export class Sidebar {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = href;
+      
+      // Add error handler for Firefox which might have issues with certain resources
+      link.onerror = () => {
+        console.error(`Failed to load stylesheet: ${href}`);
+        // Try alternate approach - inject styles as inline styles
+        this.injectStylesAlternative(href);
+      };
+      
       document.head.appendChild(link);
     };
     
-    // Add stylesheets to the page
-    addStylesheet(sidebarStyles);
     addStylesheet(themeStyles);
+    addStylesheet(sidebarStyles);
+  }
+  
+  /**
+   * Alternative method to inject styles when normal loading fails
+   * (Used primarily for Firefox compatibility)
+   */
+  private injectStylesAlternative(styleUrl: string): void {
+    try {
+      // Fetch the CSS content directly
+      fetch(styleUrl)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to fetch stylesheet: ${styleUrl}`);
+          }
+          return response.text();
+        })
+        .then(cssText => {
+          // Create a style element and inject the CSS content
+          const style = document.createElement('style');
+          style.textContent = cssText;
+          document.head.appendChild(style);
+          console.log(`Successfully injected styles from ${styleUrl} as inline styles`);
+        })
+        .catch(error => {
+          console.error('Error injecting alternative styles:', error);
+        });
+    } catch (error) {
+      console.error('Failed to inject alternative styles:', error);
+    }
   }
 
   /**
    * Shows the sidebar
    */
   public show(): void {
-    this.container.classList.add(CSS_CLASSES.SIDEBAR_EXPANDED);
-    this.container.classList.remove(CSS_CLASSES.SIDEBAR_COLLAPSED);
-    this.isVisible = true;
-    
-    // Load template and state when showing sidebar
-    this.loadTemplate();
-    
-    // Notify background script
-    this.notifyVisibilityChange(true);
+    // Use a timeout to ensure DOM updates happen after Firefox fully processes the UI
+    setTimeout(() => {
+      this.container.classList.remove(CSS_CLASSES.SIDEBAR_COLLAPSED);
+      this.container.classList.add(CSS_CLASSES.SIDEBAR_EXPANDED);
+      this.isVisible = true;
+      
+      // Firefox-specific workaround to ensure style updates are applied
+      if (navigator.userAgent.includes('Firefox')) {
+        // Force a reflow to ensure Firefox applies the styles correctly
+        this.container.style.display = 'none';
+        this.container.offsetHeight; // Trigger a reflow
+        this.container.style.display = '';
+        
+        // Log for debugging
+        console.log('Firefox workaround applied for sidebar show()');
+      }
+      
+      // Load template and state when showing sidebar
+      this.loadTemplate();
+      
+      // Notify background script
+      this.notifyVisibilityChange(true);
+    }, 0);
   }
 
   /**
    * Hides the sidebar
    */
   public hide(): void {
-    this.container.classList.add(CSS_CLASSES.SIDEBAR_COLLAPSED);
-    this.container.classList.remove(CSS_CLASSES.SIDEBAR_EXPANDED);
-    this.isVisible = false;
-    
-    // Notify background script
-    this.notifyVisibilityChange(false);
+    // Use a timeout to ensure DOM updates happen after Firefox fully processes the UI
+    setTimeout(() => {
+      this.container.classList.remove(CSS_CLASSES.SIDEBAR_EXPANDED);
+      this.container.classList.add(CSS_CLASSES.SIDEBAR_COLLAPSED);
+      this.isVisible = false;
+      
+      // Firefox-specific workaround to ensure style updates are applied
+      if (navigator.userAgent.includes('Firefox')) {
+        // Force a reflow to ensure Firefox applies the styles correctly
+        this.container.style.display = 'none';
+        this.container.offsetHeight; // Trigger a reflow
+        this.container.style.display = '';
+        
+        // Log for debugging
+        console.log('Firefox workaround applied for sidebar hide()');
+      }
+      
+      // Notify background script
+      this.notifyVisibilityChange(false);
+    }, 0);
   }
 
   /**
@@ -396,11 +460,11 @@ export class Sidebar {
 
     try {
       console.log('Loading state for key:', this.stateKey);
-      const state = await storageManager.getChecklistState();
+      const storageState = await storageManager.getChecklistState();
       
-      if (state) {
-        this.state = state;
-        console.log('Loaded state from storage', state);
+      if (storageState && this.stateKey in storageState) {
+        this.state = storageState[this.stateKey];
+        console.log('Loaded state from storage', this.state);
       } else {
         console.log('No existing state found, initializing new state');
         // Initialize new state if none exists
@@ -459,7 +523,15 @@ export class Sidebar {
     try {
       // Update last updated timestamp
       this.state.lastUpdated = Date.now();
-      await storageManager.saveChecklistState(this.state);
+      
+      // Get current storage state or initialize empty object
+      const storageState = await storageManager.getChecklistState() || {};
+      
+      // Update the specific PR state
+      storageState[this.stateKey] = this.state;
+      
+      // Save the entire storage state
+      await storageManager.saveChecklistState(storageState);
       console.log('Saved state to storage', this.state);
     } catch (error) {
       console.error('Failed to save state:', error);
@@ -688,7 +760,17 @@ export class Sidebar {
     expandCollapseBtn: HTMLElement, 
     isExpanded: boolean
   ): void {
-    content.style.display = isExpanded ? 'block' : 'none';
+    // Update with CSS classes instead of inline styles
+    if (isExpanded) {
+      content.classList.add('checkmate-section-expanded');
+      content.classList.remove('checkmate-section-collapsed');
+      content.style.display = 'block';
+    } else {
+      content.classList.remove('checkmate-section-expanded');
+      content.classList.add('checkmate-section-collapsed');
+      content.style.display = 'none';
+    }
+    
     headerToggle.innerHTML = isExpanded ? '▼' : '▶';
     
     // Update expand/collapse button
@@ -704,6 +786,19 @@ export class Sidebar {
     const controlsDiv = content.querySelector(`.${CSS_CLASSES.CHECKLIST_SECTION_CONTROLS}`) as HTMLElement;
     if (controlsDiv) {
       controlsDiv.style.display = isExpanded ? 'flex' : 'none';
+    }
+    
+    // Force a reflow for Firefox to properly render content
+    if (navigator.userAgent.includes('Firefox') && isExpanded) {
+      // The following line forces a reflow by getting the computed style
+      window.getComputedStyle(content).getPropertyValue('display');
+      // Give Firefox a moment to render properly
+      setTimeout(() => {
+        // Ensure scroll height is captured properly
+        const sectionHeight = content.scrollHeight;
+        content.style.maxHeight = sectionHeight + 'px';
+        console.log(`Firefox: Setting section height to ${sectionHeight}px`);
+      }, 0);
     }
   }
   

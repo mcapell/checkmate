@@ -39,6 +39,7 @@
     {
       "resources": [
         "content/sidebar.css",
+        "styles/theme.css",
         "default-template.yaml",
         "icons/*",
         "popup.html"

@@ -56,13 +56,12 @@ class TemplateManager {
       }
       
       return {
-        title: parsed.title || 'Code Review Checklist',
         sections: Array.isArray(parsed.sections) 
           ? parsed.sections.map((section: any) => ({
-              title: section.title || 'Untitled Section',
+              name: section.title || section.name || 'Untitled Section',
               items: Array.isArray(section.items)
                 ? section.items.map((item: any) => ({
-                    text: typeof item === 'string' ? item : item.text || 'Untitled Item',
+                    name: typeof item === 'string' ? item : item.text || item.name || 'Untitled Item',
                     required: item.required || false
                   }))
                 : []
@@ -90,13 +89,12 @@ class TemplateManager {
       }
       
       return {
-        title: parsed.title || 'Code Review Checklist',
         sections: Array.isArray(parsed.sections) 
           ? parsed.sections.map((section: any) => ({
-              title: section.title || 'Untitled Section',
+              name: section.title || section.name || 'Untitled Section',
               items: Array.isArray(section.items)
                 ? section.items.map((item: any) => ({
-                    text: typeof item === 'string' ? item : item.text || 'Untitled Item',
+                    name: typeof item === 'string' ? item : item.text || item.name || 'Untitled Item',
                     required: item.required || false
                   }))
                 : []
@@ -121,7 +119,7 @@ class TemplateManager {
       
       // Extract title (first # heading)
       const titleLine = lines.find(line => line.startsWith('# '));
-      const title = titleLine ? titleLine.substring(2).trim() : 'Code Review Checklist';
+      const templateTitle = titleLine ? titleLine.substring(2).trim() : 'Code Review Checklist';
       
       // Parse sections (## headings) and items (- [ ] items)
       const sections: Section[] = [];
@@ -134,7 +132,7 @@ class TemplateManager {
             sections.push(currentSection);
           }
           currentSection = {
-            title: line.substring(3).trim(),
+            name: line.substring(3).trim(),
             items: []
           };
         } 
@@ -143,7 +141,7 @@ class TemplateManager {
           if (!currentSection) {
             // Create default section if no section was found yet
             currentSection = {
-              title: 'General',
+              name: 'General',
               items: []
             };
           }
@@ -152,7 +150,7 @@ class TemplateManager {
           const itemText = line.substring(5).trim();
           
           currentSection.items.push({
-            text: itemText,
+            name: itemText,
             required: false // Markdown doesn't support required flag directly
           });
         }
@@ -163,8 +161,20 @@ class TemplateManager {
         sections.push(currentSection);
       }
       
+      // If no sections were found, create a default section with an item for the content
+      if (sections.length === 0) {
+        sections.push({
+          name: 'General',
+          items: [
+            {
+              name: 'Review the content',
+              required: false
+            }
+          ]
+        });
+      }
+      
       return {
-        title,
         sections
       };
     } catch (error) {
@@ -179,27 +189,26 @@ class TemplateManager {
    */
   private getFallbackTemplate(): Template {
     return {
-      title: 'Code Review Checklist',
       sections: [
         {
-          title: 'Functionality',
+          name: 'Functionality',
           items: [
-            { text: 'Code works as expected', required: true },
-            { text: 'Edge cases are handled', required: false }
+            { name: 'Code works as expected', required: true },
+            { name: 'Edge cases are handled', required: false }
           ]
         },
         {
-          title: 'Code Quality',
+          name: 'Code Quality',
           items: [
-            { text: 'Code follows style guidelines', required: false },
-            { text: 'Code is well documented', required: false }
+            { name: 'Code follows style guidelines', required: false },
+            { name: 'Code is well documented', required: false }
           ]
         },
         {
-          title: 'Security',
+          name: 'Security',
           items: [
-            { text: 'Input validation is in place', required: true },
-            { text: 'Sensitive data is handled securely', required: true }
+            { name: 'Input validation is in place', required: true },
+            { name: 'Sensitive data is handled securely', required: true }
           ]
         }
       ]

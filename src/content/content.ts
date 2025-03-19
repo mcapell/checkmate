@@ -14,6 +14,12 @@ import { Sidebar } from './sidebar';
 
 console.log('GitHub Code Review Checklist extension loaded');
 
+// Detect Firefox for Firefox-specific logging
+const isFirefox = navigator.userAgent.includes('Firefox');
+if (isFirefox) {
+  console.log('Running in Firefox browser');
+}
+
 // Keep track of the active sidebar instance
 let activeSidebar: Sidebar | null = null;
 
@@ -73,6 +79,16 @@ function injectSidebar(repoInfo: RepoInfo): void {
   
   // Initial state - hide the sidebar
   activeSidebar.hide();
+  
+  // Add extra debugging for Firefox
+  if (isFirefox) {
+    console.log('Firefox: Sidebar elements injected, current DOM structure:');
+    const sidebarContainer = document.querySelector('.checkmate-sidebar-container');
+    console.log('Sidebar container found:', sidebarContainer !== null);
+    if (sidebarContainer) {
+      console.log('Sidebar container classes:', sidebarContainer.className);
+    }
+  }
   
   // Notify background script that sidebar is ready
   notifyBackgroundScript(repoInfo);
@@ -190,6 +206,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       if (sidebar) {
         sidebar.show();
+        // Check if the sidebar is visible (Firefox debugging)
+        if (isFirefox) {
+          const sidebarContainer = document.querySelector('.checkmate-sidebar-container');
+          console.log('Firefox: After show() - Container classes:', sidebarContainer?.className);
+        }
         notifySidebarVisibilityChange(true);
         sendResponse({ success: true, isVisible: true });
       } else {
@@ -199,6 +220,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const reinitializedSidebar = activeSidebar as Sidebar | null;
         if (reinitializedSidebar) {
           reinitializedSidebar.show();
+          // Check if the sidebar is visible (Firefox debugging)
+          if (isFirefox) {
+            const sidebarContainer = document.querySelector('.checkmate-sidebar-container');
+            console.log('Firefox: After reinitialized show() - Container classes:', sidebarContainer?.className);
+          }
           notifySidebarVisibilityChange(true);
           sendResponse({ success: true, isVisible: true });
         } else {
@@ -216,6 +242,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       if (sidebar) {
         sidebar.hide();
+        // Check if the sidebar is hidden (Firefox debugging)
+        if (isFirefox) {
+          const sidebarContainer = document.querySelector('.checkmate-sidebar-container');
+          console.log('Firefox: After hide() - Container classes:', sidebarContainer?.className);
+        }
         notifySidebarVisibilityChange(false);
         sendResponse({ success: true, isVisible: false });
       } else {
@@ -226,6 +257,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'toggleSidebar':
       const result = toggleSidebar();
       if (result.success && result.isVisible !== undefined) {
+        // Check toggle result (Firefox debugging)
+        if (isFirefox) {
+          const sidebarContainer = document.querySelector('.checkmate-sidebar-container');
+          console.log('Firefox: After toggle() - Container classes:', sidebarContainer?.className);
+          console.log('Firefox: Toggled visibility to:', result.isVisible);
+        }
         notifySidebarVisibilityChange(result.isVisible);
       }
       sendResponse(result);
@@ -250,8 +287,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       break;
       
     default:
+      // Unknown action
       sendResponse({ success: false, error: 'Unknown action' });
   }
   
-  return true; // Keep the message channel open for async responses
+  // Keep the message channel open for asynchronous response
+  return true;
 }); 

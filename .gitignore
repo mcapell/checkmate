@@ -4,6 +4,7 @@ package-lock.json
 
 # Build output
 dist/
+packages/
 
 # Environment variables
 .env
@@ -21,4 +22,4 @@ yarn-error.log*
 
 # OS specific files
 .DS_Store
-Thumbs.db 
+Thumbs.db packages/
