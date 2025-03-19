@@ -96,41 +96,6 @@ npm test
 
 For more information on development, see the [Developer Documentation](docs/DEVELOPER.md).
 
-## Data Models
-
-### Template Structure
-```typescript
-interface ChecklistTemplate {
-  sections: Section[];
-}
-
-interface Section {
-  name: string;
-  items: ChecklistItem[];
-}
-
-interface ChecklistItem {
-  name: string;
-  url?: string;
-}
-```
-
-### State Structure
-```typescript
-interface ChecklistState {
-  items: Record<string, ItemState>;
-  sections: Record<string, boolean>; // true = expanded, false = collapsed
-  lastUpdated: number; // timestamp
-  templateUrl: string;
-  templateVersion?: string;
-}
-
-interface ItemState {
-  checked: boolean;
-  needsAttention: boolean;
-}
-```
-
 ## License
 
 MIT 
