@@ -273,6 +273,25 @@ chrome.runtime.onMessage.addListener((
       sendResponse({ success: true });
       break;
       
+    case 'openOptionsPage':
+      // Open the options page
+      try {
+        chrome.runtime.openOptionsPage();
+        sendResponse({ success: true });
+      } catch (error) {
+        console.error('Error opening options page:', error);
+        sendResponse({ 
+          success: false, 
+          error: {
+            category: ErrorCategory.UNKNOWN,
+            message: 'Failed to open options page',
+            details: error,
+            timestamp: Date.now()
+          } as ExtensionError
+        });
+      }
+      break;
+      
     default:
       // Unknown action
       console.warn('Unknown message action received:', message.action);

@@ -11,6 +11,9 @@ import { storageManager } from '../utils/storage';
 import { themeManager } from '../utils/theme';
 import { generatePrIdentifier } from '../utils/github-utils';
 
+// TypeScript declaration for the Firefox browser API
+declare const browser: typeof chrome;
+
 // CSS class names for styling and element selection
 const CSS_CLASSES = {
   SIDEBAR_CONTAINER: 'checkmate-sidebar-container',
@@ -162,6 +165,24 @@ export class Sidebar {
     restartButton.title = 'Reset checklist state';
     restartButton.addEventListener('click', () => this.resetState());
     
+    // Options button
+    const optionsButton = document.createElement('button');
+    optionsButton.className = CSS_CLASSES.RESTART_BUTTON; // Reuse the same styling as restart button
+    optionsButton.textContent = '⚙️ Options';
+    optionsButton.title = 'Open options page';
+    optionsButton.addEventListener('click', () => {
+      try {
+        // Send message to background script to open options page
+        chrome.runtime.sendMessage({ action: 'openOptionsPage' }, (response) => {
+          if (!response || !response.success) {
+            console.error('Failed to open options page:', response?.error || 'Unknown error');
+          }
+        });
+      } catch (error) {
+        console.error('Error sending message to open options page:', error);
+      }
+    });
+    
     // Close button
     const closeButton = document.createElement('button');
     closeButton.textContent = '✕';
@@ -169,6 +190,7 @@ export class Sidebar {
     closeButton.addEventListener('click', () => this.hide());
     
     controls.appendChild(restartButton);
+    controls.appendChild(optionsButton);
     controls.appendChild(closeButton);
     header.appendChild(controls);
 
@@ -190,8 +212,22 @@ export class Sidebar {
   private createToggleButton(): HTMLElement {
     const toggleButton = document.createElement('button');
     toggleButton.className = CSS_CLASSES.SIDEBAR_TOGGLE;
-    toggleButton.title = 'Toggle checklist sidebar';
+    toggleButton.title = 'Toggle code review checklist';
     toggleButton.innerHTML = '📋';
+    toggleButton.style.position = 'fixed';
+    toggleButton.style.top = '80px';
+    toggleButton.style.right = '0';
+    toggleButton.style.zIndex = '9999';
+    toggleButton.style.background = '#2ea44f'; // GitHub green
+    toggleButton.style.color = '#ffffff';
+    toggleButton.style.border = '1px solid #2c974b';
+    toggleButton.style.borderRight = 'none';
+    toggleButton.style.borderRadius = '4px 0 0 4px';
+    toggleButton.style.padding = '8px 10px';
+    toggleButton.style.cursor = 'pointer';
+    toggleButton.style.fontSize = '16px';
+    toggleButton.style.boxShadow = '0 0 5px rgba(0, 0, 0, 0.2)';
+    
     toggleButton.addEventListener('click', () => this.toggle());
     return toggleButton;
   }
@@ -223,17 +259,10 @@ export class Sidebar {
    * Inject the sidebar into the page
    */
   public inject(): void {
-    // Inject the sidebar container
+    // Inject the sidebar container only
     document.body.appendChild(this.container);
     
-    // Inject the toggle button
-    const githubHeader = document.querySelector(`.${CSS_CLASSES.GITHUB_HEADER}`);
-    if (githubHeader) {
-      githubHeader.appendChild(this.createToggleButton());
-    } else {
-      // If we can't find the GitHub header, inject the toggle button next to the sidebar
-      document.body.appendChild(this.createToggleButton());
-    }
+    // No longer inject toggle button into GitHub UI
     
     // Inject the custom styles
     this.injectStyles();

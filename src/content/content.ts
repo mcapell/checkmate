@@ -35,6 +35,7 @@ function initOnPullRequestPage() {
   
   // Update current URL
   currentUrl = window.location.href;
+  console.log('Checking if current page is a GitHub PR:', window.location.href);
   
   if (isGitHubPrPage(window.location.href)) {
     console.log('Pull request page detected, initializing checklist...');
@@ -43,8 +44,16 @@ function initOnPullRequestPage() {
     const repoInfo: RepoInfo = getCurrentRepoInfo();
     const prIdentifier = getCurrentPrIdentifier();
     
+    console.log('Extracted PR info:', {
+      owner: repoInfo.owner,
+      repo: repoInfo.repo,
+      prNumber: repoInfo.prNumber,
+      isValid: repoInfo.isValid,
+      prIdentifier
+    });
+    
     if (repoInfo.isValid && prIdentifier) {
-      console.log(`Detected PR: ${prIdentifier}`);
+      console.log(`Detected PR: ${prIdentifier}, injecting sidebar`);
       
       // Inject sidebar UI
       injectSidebar(repoInfo);
@@ -52,6 +61,7 @@ function initOnPullRequestPage() {
       console.warn('Could not extract valid PR information from URL');
     }
   } else {
+    console.log('Not a PR page, current URL:', window.location.href);
     // Clean up sidebar if we're not on a PR page anymore
     cleanupExistingSidebar();
   }
