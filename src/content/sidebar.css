@@ -345,23 +345,48 @@
 
 /* Checklist item label */
 .checkmate-checklist-item-label {
-  flex: 1;
   cursor: pointer;
   font-size: 14px;
   line-height: 1.4;
   color: var(--checkmate-text);
-  padding-right: 24px; /* Space for the attention toggle */
+}
+
+/* Label wrapper for flexible label and URL icon layout */
+.checkmate-label-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  padding-right: 30px; /* Space for the attention toggle */
 }
 
 /* Documentation link */
 .checkmate-checklist-item-doc-link {
   color: var(--checkmate-primary);
   text-decoration: none;
-  margin-left: 4px;
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-top: 1px; /* Slight adjustment to align with text */
 }
 
 .checkmate-checklist-item-doc-link:hover {
-  text-decoration: underline;
+  opacity: 0.8;
+}
+
+.checkmate-checklist-item-doc-link svg {
+  vertical-align: middle;
+  color: var(--checkmate-primary);
+}
+
+/* Link container for URL displayed below item name - keeping for backward compatibility */
+.checkmate-item-link-container {
+  margin-left: 24px;
+  margin-top: 2px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  display: inline-block;
+  margin-right: 28px;
 }
 
 /* Loading state */

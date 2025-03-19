@@ -916,21 +916,27 @@ export class Sidebar {
     label.htmlFor = checkbox.id;
     label.textContent = item.name;
     
-    // Add checkbox and label to item
-    itemElement.appendChild(checkbox);
-    itemElement.appendChild(label);
+    // Create label wrapper to hold both label and URL link if present
+    const labelWrapper = document.createElement('div');
+    labelWrapper.className = 'checkmate-label-wrapper';
+    labelWrapper.appendChild(label);
     
-    // Add documentation link if available
+    // Add URL link if available - inline with the label
     if (item.url) {
-      const docLink = document.createElement('a');
-      docLink.className = CSS_CLASSES.CHECKLIST_ITEM_DOC_LINK;
-      docLink.href = item.url;
-      docLink.target = '_blank';
-      docLink.title = 'View documentation';
-      docLink.innerHTML = '📄';
+      const urlLink = document.createElement('a');
+      urlLink.className = CSS_CLASSES.CHECKLIST_ITEM_DOC_LINK;
+      urlLink.href = item.url;
+      urlLink.target = '_blank';
+      urlLink.title = item.url; // Show the full URL in tooltip on hover
+      urlLink.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>';
+      urlLink.setAttribute('aria-label', 'Link to documentation');
       
-      itemElement.appendChild(docLink);
+      labelWrapper.appendChild(urlLink);
     }
+    
+    // Add checkbox and label wrapper to item
+    itemElement.appendChild(checkbox);
+    itemElement.appendChild(labelWrapper);
     
     // Add state toggle button (ensure Firefox compatibility)
     const stateToggle = document.createElement('button');
