@@ -6,7 +6,7 @@ import { getBrowserAPI, promisify } from './browser-detection';
  * Interface for the storage manager that handles persistent storage
  * of checklist state and extension options
  */
-export interface StorageManager {
+export interface IStorageManager {
   /**
    * Saves the checklist state to browser storage
    * @param state - The checklist state to save
@@ -57,7 +57,7 @@ const DEFAULT_OPTIONS: ExtensionOptions = {
  * 
  * Handles persistent storage for the extension.
  */
-class StorageManager {
+class StorageManager implements IStorageManager {
   /**
    * Get extension options from storage
    * @returns The extension options
@@ -211,7 +211,7 @@ try {
   console.warn('Browser storage not available, storage manager will not be initialized', error);
 }
 
-export const storageManager: StorageManager = storageManagerInstance!;
+export const storageManager: IStorageManager = storageManagerInstance!;
 
 // Export the class for testing purposes
 export { StorageManager }; 
