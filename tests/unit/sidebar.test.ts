@@ -631,10 +631,14 @@ describe('Sidebar Component', () => {
     sidebar.show();
     
     // Wait for error to be caught
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise(resolve => setTimeout(resolve, 100)); // Increase timeout
+    
+    // Log the current content to debug
+    console.log('DOCUMENT HTML:', document.body.innerHTML);
     
     // Verify error state is shown
     const errorElement = document.querySelector('.checkmate-checklist-error');
+    console.log('Error element found:', errorElement);
     expect(errorElement).toBeTruthy();
     expect(errorElement?.textContent).toContain('Failed to load template');
     

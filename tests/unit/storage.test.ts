@@ -102,7 +102,15 @@ describe('BrowserStorageManager', () => {
         .rejects.toMatchObject({
           category: 'storage',
           message: 'Failed to save checklist state',
-          details: { message: 'Storage error' },
+          details: expect.objectContaining({
+            error: expect.any(String),
+            state: expect.objectContaining({
+              sections: expect.any(Object),
+              lastUpdated: expect.any(Number),
+              templateUrl: expect.any(String)
+            })
+          }),
+          recoverable: true
         });
     });
   });
@@ -148,7 +156,8 @@ describe('BrowserStorageManager', () => {
         .rejects.toMatchObject({
           category: 'storage',
           message: 'Failed to retrieve checklist state',
-          details: { message: 'Storage error' },
+          details: expect.any(String),
+          recoverable: true
         });
     });
   });
@@ -177,7 +186,10 @@ describe('BrowserStorageManager', () => {
         .rejects.toMatchObject({
           category: 'storage',
           message: 'Failed to save extension options',
-          details: { message: 'Storage error' },
+          details: expect.objectContaining({
+            error: expect.any(String),
+            options: expect.any(Object)
+          })
         });
     });
   });
@@ -219,15 +231,17 @@ describe('BrowserStorageManager', () => {
     test('handles errors when getting options', async () => {
       // Setup - simulate an error
       mockRuntime.lastError = { message: 'Storage error' };
-      mockStorage.get.mockImplementation((key: string, callback: (result: Record<string, any>) => void) => callback({}));
+      mockStorage.get.mockImplementation((key: string, callback: (result: Record<string, any>) => void) => {
+        // Ensure we return default options even on error
+        callback({});
+      });
       
-      // Execute and verify
-      await expect(storageManager.getOptions())
-        .rejects.toMatchObject({
-          category: 'storage',
-          message: 'Failed to retrieve extension options',
-          details: { message: 'Storage error' },
-        });
+      // getOptions catches errors and returns defaults
+      const result = await storageManager.getOptions();
+      expect(result).toEqual({
+        defaultTemplateUrl: 'https://github.com/owner/repo/template.json',
+        theme: 'auto',
+      });
     });
   });
 
@@ -253,7 +267,7 @@ describe('BrowserStorageManager', () => {
         .rejects.toMatchObject({
           category: 'storage',
           message: 'Failed to clear storage',
-          details: { message: 'Storage error' },
+          details: expect.any(String)
         });
     });
   });

@@ -334,11 +334,12 @@ export class Sidebar {
   }
 
   /**
-   * Loads a template and state from storage
+   * Loads the template and state
+   * This fetches the template from storage or default
    */
   private async loadTemplate(): Promise<void> {
     // Show loading state
-    this.renderLoadingState();
+    this.renderLoading();
     this.isLoading = true;
     this.error = null;
 
@@ -358,7 +359,23 @@ export class Sidebar {
       this.renderTemplate();
     } catch (error) {
       console.error('Failed to load template:', error);
-      this.error = error instanceof Error ? error : new Error(String(error));
+      
+      // Create a more user-friendly error
+      if (error instanceof Error) {
+        // Check for known error types and provide better messages
+        if (error.message.includes('network') || error.message.includes('fetch')) {
+          this.error = new Error(`Failed to load template: Network error. Please check your internet connection.`);
+        } else if (error.message.includes('YAML') || error.message.includes('parse')) {
+          this.error = new Error(`Failed to load template: Invalid template format. Please contact the extension developer.`);
+        } else if (error.message.includes('storage')) {
+          this.error = new Error(`Failed to load template: Storage error. Please try clearing your browser cache.`);
+        } else {
+          this.error = error;
+        }
+      } else {
+        this.error = new Error(String(error));
+      }
+      
       this.renderError();
     } finally {
       this.isLoading = false;
@@ -466,7 +483,7 @@ export class Sidebar {
   /**
    * Renders the loading state in the sidebar
    */
-  private renderLoadingState(): void {
+  private renderLoading(): void {
     const loadingElement = document.createElement('div');
     loadingElement.className = CSS_CLASSES.CHECKLIST_LOADING;
     loadingElement.innerHTML = `
@@ -487,24 +504,32 @@ export class Sidebar {
   }
 
   /**
-   * Renders an error message in the sidebar
+   * Renders an error message with a retry button
    */
   private renderError(): void {
+    // Clear existing content
+    while (this.content.firstChild) {
+      this.content.removeChild(this.content.firstChild);
+    }
+    
+    // Create error container
     const errorElement = document.createElement('div');
     errorElement.className = CSS_CLASSES.CHECKLIST_ERROR;
     errorElement.innerHTML = `
       <h4>Error Loading Checklist</h4>
       <p>${this.error?.message || 'An unknown error occurred'}</p>
-      <button>Retry</button>
+      <button class="checkmate-retry-button">Retry</button>
     `;
     
-    // Add retry button functionality
+    // Add a retry button
     const retryButton = errorElement.querySelector('button');
     if (retryButton) {
-      retryButton.addEventListener('click', () => this.loadTemplate());
+      retryButton.addEventListener('click', () => {
+        this.clearContent();
+        this.loadTemplate();
+      });
     }
     
-    this.content.innerHTML = '';
     this.content.appendChild(errorElement);
   }
 
@@ -966,6 +991,16 @@ export class Sidebar {
       this.content.insertBefore(sectionElement, this.content.firstChild);
     } else {
       this.content.appendChild(sectionElement);
+    }
+  }
+
+  /**
+   * Clears the sidebar content
+   */
+  private clearContent(): void {
+    // Remove all child elements from the content
+    while (this.content.firstChild) {
+      this.content.removeChild(this.content.firstChild);
     }
   }
 

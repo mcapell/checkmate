@@ -24,9 +24,29 @@
       cursor: pointer;
       font-size: 14px;
       margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     button:hover {
       background-color: #2c974b;
+    }
+    button:disabled {
+      background-color: #94d3a2;
+      cursor: not-allowed;
+    }
+    .button-secondary {
+      background-color: #6e7781;
+      margin-left: 10px;
+    }
+    .button-secondary:hover {
+      background-color: #57606a;
+    }
+    .retry-btn {
+      background-color: #0969da;
+    }
+    .retry-btn:hover {
+      background-color: #0550af;
     }
     .checklist-item {
       margin-bottom: 8px;
@@ -35,20 +55,113 @@
     .empty-state {
       color: #666;
       font-style: italic;
+      padding: 15px 0;
+      text-align: center;
     }
     .section-header {
       border-bottom: 1px solid #eee;
       padding-bottom: 3px;
     }
+    .loading-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px 0;
+    }
+    .spinner {
+      border: 3px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-top: 3px solid #0969da;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .error-container {
+      border: 1px solid #ff8888;
+      border-radius: 6px;
+      background-color: #fff8f8;
+      padding: 12px;
+      margin: 10px 0;
+      color: #d73a49;
+    }
+    .error-title {
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+    }
+    .error-title svg {
+      margin-right: 5px;
+    }
+    .error-message {
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    .error-suggestions {
+      font-size: 11px;
+      border-top: 1px solid #ffdce0;
+      padding-top: 8px;
+      margin-top: 8px;
+    }
+    .error-suggestion {
+      margin-bottom: 3px;
+    }
+    .error-suggestion:before {
+      content: "• ";
+      color: #d73a49;
+    }
+    .error-actions {
+      margin-top: 8px;
+      display: flex;
+      justify-content: flex-end;
+    }
   </style>
 </head>
 <body>
   <h1>GitHub Code Review Checklist</h1>
+  
+  <!-- Loading indicator (hidden by default) -->
+  <div id="loading-container" class="loading-indicator" style="display: none;">
+    <div class="spinner"></div>
+    <div id="loading-message">Loading...</div>
+  </div>
+  
+  <!-- Error container (hidden by default) -->
+  <div id="error-container" class="error-container" style="display: none;">
+    <div class="error-title">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" fill="#d73a49">
+        <path fill-rule="evenodd" d="M8 0a8 8 0 100 16A8 8 0 008 0zM5 8a1 1 0 100-2 1 1 0 000 2zm7-1a1 1 0 11-2 0 1 1 0 012 0zM5.32 13.727C5.658 13.91 6 13.5 6 13.14V11a1 1 0 011-1h2a1 1 0 011 1v2.14c0 .36.342.769.68.928 1.958.93 3.32-1.002 3.32-1.002-.826 1.935-2.54 3.934-6 3.934-3.5 0-5.207-2.04-6-3.992 0 0 1.539 1.927 3.32.992z"/>
+      </svg>
+      <span id="error-title">Error</span>
+    </div>
+    <div id="error-message" class="error-message">
+      Something went wrong.
+    </div>
+    <div id="error-suggestions" class="error-suggestions">
+      <!-- Suggestions will be added dynamically -->
+    </div>
+    <div class="error-actions">
+      <button id="retry-btn" class="retry-btn">Retry</button>
+    </div>
+  </div>
+
   <div id="checklist-container">
     <!-- Checklist items will be dynamically added here -->
     <div class="empty-state">Loading checklist...</div>
   </div>
-  <button id="new-checklist-btn">Create New Checklist</button>
+  
+  <div style="display: flex; margin-top: 10px;">
+    <button id="new-checklist-btn">Create New Checklist</button>
+    <button id="refresh-btn" class="button-secondary">Refresh</button>
+  </div>
+  
   <script src="popup.js"></script>
 </body>
 </html> 

@@ -1,5 +1,6 @@
 import * as yaml from 'js-yaml';
 import { ChecklistTemplate, ErrorCategory, ExtensionError, Section, ChecklistItem } from '../types';
+import { handleTemplateError, handleNetworkError, handleYamlError } from './error-handler';
 
 /**
  * Interface for template management operations
@@ -41,18 +42,40 @@ export class DefaultTemplateManager implements TemplateManager {
    */
   async fetchTemplate(url: string): Promise<ChecklistTemplate> {
     try {
+      console.log(`Fetching template from URL: ${url}`);
       const response = await fetch(url);
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch template: ${response.statusText}`);
+        throw handleNetworkError(
+          `Failed to fetch template: ${response.statusText}`,
+          { url, status: response.status, statusText: response.statusText },
+          [
+            'Check that the URL is correct and accessible',
+            'Verify your internet connection',
+            'Try again later'
+          ],
+          true
+        );
       }
       
       const yamlContent = await response.text();
       return this.parseTemplate(yamlContent);
     } catch (error) {
-      throw this.createError(
+      // If it's already an ExtensionError, re-throw it
+      if ((error as ExtensionError).category) {
+        throw error;
+      }
+      
+      // Otherwise, create a network error
+      throw handleNetworkError(
         'Failed to fetch template from URL',
-        error instanceof Error ? error.message : String(error)
+        { url, error: error instanceof Error ? error.message : String(error) },
+        [
+          'Check that the URL is correct and accessible',
+          'Verify your internet connection',
+          'Try the default template instead'
+        ],
+        true
       );
     }
   }
@@ -66,17 +89,60 @@ export class DefaultTemplateManager implements TemplateManager {
    */
   parseTemplate(yamlContent: string): ChecklistTemplate {
     try {
-      const parsedYaml = yaml.load(yamlContent);
+      console.log('Parsing YAML content...');
+      let parsedYaml;
       
-      if (!this.validateTemplate(parsedYaml)) {
-        throw new Error('Invalid template structure');
+      try {
+        // First, try to parse the YAML content
+        parsedYaml = yaml.load(yamlContent);
+      } catch (yamlError) {
+        // If YAML parsing fails, throw a YAML-specific error
+        throw handleYamlError(
+          'Failed to parse template YAML',
+          { 
+            error: yamlError instanceof Error ? yamlError.message : String(yamlError),
+            content: yamlContent.substring(0, 100) + '...' 
+          },
+          [
+            'The template YAML syntax is invalid',
+            'Check for indentation or format errors',
+            'Try using the default template instead'
+          ],
+          false
+        );
       }
       
+      // After parsing, validate the template structure
+      if (!this.validateTemplate(parsedYaml)) {
+        throw handleTemplateError(
+          'Invalid template structure',
+          { content: yamlContent.substring(0, 100) + '...' },
+          [
+            'The template format is incorrect',
+            'Check that the template contains sections and items',
+            'Try using the default template instead'
+          ],
+          false
+        );
+      }
+      
+      console.log('Successfully parsed template');
       return parsedYaml;
     } catch (error) {
-      throw this.createError(
+      // If it's already an ExtensionError (from the inner catches), re-throw it
+      if ((error as ExtensionError).category) {
+        throw error;
+      }
+      
+      // Otherwise, create a template error for unexpected issues
+      throw handleTemplateError(
         'Failed to parse template',
-        error instanceof Error ? error.message : String(error)
+        { error: error instanceof Error ? error.message : String(error) },
+        [
+          'The template format may be incorrect',
+          'Try using the default template instead'
+        ],
+        false
       );
     }
   }
@@ -96,9 +162,30 @@ export class DefaultTemplateManager implements TemplateManager {
       return template;
     } catch (error) {
       console.error('Error loading default template:', error);
-      throw this.createError(
+      
+      // If it's already an ExtensionError, enhance it with recovery instructions
+      if ((error as ExtensionError).category) {
+        const extensionError = error as ExtensionError;
+        extensionError.message = 'Failed to load default template: ' + extensionError.message;
+        extensionError.suggestions = [
+          'Reload the extension',
+          'Check the extension installation',
+          'If the problem persists, reinstall the extension'
+        ];
+        extensionError.recoverable = false;
+        throw extensionError;
+      }
+      
+      // Otherwise, create a template error
+      throw handleTemplateError(
         'Failed to load default template',
-        error instanceof Error ? error.message : String(error)
+        { error: error instanceof Error ? error.message : String(error) },
+        [
+          'Reload the extension',
+          'Check the extension installation',
+          'If the problem persists, reinstall the extension'
+        ],
+        false
       );
     }
   }
@@ -176,18 +263,6 @@ export class DefaultTemplateManager implements TemplateManager {
     }
     
     return true;
-  }
-  
-  /**
-   * Create a template-related error
-   */
-  private createError(message: string, details?: unknown): ExtensionError {
-    return {
-      category: ErrorCategory.TEMPLATE,
-      message,
-      details,
-      timestamp: Date.now()
-    };
   }
 }
 

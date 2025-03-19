@@ -112,8 +112,8 @@ sections:
       try {
         templateManager.parseTemplate(invalidYaml);
       } catch (error: any) {
-        expect(error.category).toBe(ErrorCategory.TEMPLATE);
-        expect(error.message).toContain('Failed to parse template');
+        expect(error.category).toBe(ErrorCategory.YAML);
+        expect(error.message).toContain('Failed to parse template YAML');
       }
     });
     
@@ -130,7 +130,7 @@ wrongKey:
         templateManager.parseTemplate(invalidStructureYaml);
       } catch (error: any) {
         expect(error.category).toBe(ErrorCategory.TEMPLATE);
-        expect(error.message).toContain('Failed to parse template');
+        expect(error.message).toContain('Invalid template structure');
       }
     });
   });
@@ -279,8 +279,9 @@ sections:
         await templateManager.fetchTemplate('https://example.com/not-found.yaml');
         fail('Expected an error to be thrown');
       } catch (error: any) {
-        expect(error.category).toBe(ErrorCategory.TEMPLATE);
-        expect(error.message).toContain('Failed to fetch template from URL');
+        expect(error.category).toBe(ErrorCategory.NETWORK);
+        expect(error.message).toContain('Failed to fetch template');
+        expect(error.recoverable).toBe(true);
       }
     });
     
@@ -293,8 +294,9 @@ sections:
         await templateManager.fetchTemplate('https://example.com/error.yaml');
         fail('Expected an error to be thrown');
       } catch (error: any) {
-        expect(error.category).toBe(ErrorCategory.TEMPLATE);
+        expect(error.category).toBe(ErrorCategory.NETWORK);
         expect(error.message).toContain('Failed to fetch template from URL');
+        expect(error.recoverable).toBe(true);
       }
     });
   });
@@ -340,8 +342,10 @@ sections:
         await templateManager.getDefaultTemplate();
         fail('Expected an error to be thrown');
       } catch (error: any) {
-        expect(error.category).toBe(ErrorCategory.TEMPLATE);
+        expect(error.category).toBe(ErrorCategory.NETWORK);
         expect(error.message).toContain('Failed to load default template');
+        // The default template loading errors should not be recoverable
+        expect(error.recoverable).toBe(false);
       }
     });
   });

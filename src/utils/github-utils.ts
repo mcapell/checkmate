@@ -30,6 +30,15 @@ const REPO_URL_REGEX = /github\.com\/([^\/]+)\/([^\/]+)(?:\/|$)/;
  */
 export function extractRepoInfoFromUrl(url: string): RepoInfo {
   try {
+    if (!url || typeof url !== 'string') {
+      throw handleGitHubError(
+        'Invalid URL provided',
+        { url },
+        ['Ensure you are on a valid GitHub page'],
+        false
+      );
+    }
+
     // Try to match as a pull request URL first
     const prMatch = url.match(PR_URL_REGEX);
     if (prMatch) {
@@ -52,21 +61,35 @@ export function extractRepoInfoFromUrl(url: string): RepoInfo {
     }
 
     // Return invalid info if no match
+    console.warn('URL does not match GitHub repo or PR pattern:', url);
     return {
       owner: '',
       repo: '',
       isValid: false,
     };
   } catch (error) {
-    handleGitHubError('Failed to extract repository information from URL', {
+    // If it's already an ExtensionError, re-throw it
+    if ((error as any).category) {
+      throw error;
+    }
+    
+    const errorDetails = {
       url,
-      error,
-    });
-    return {
-      owner: '',
-      repo: '',
-      isValid: false,
+      error: error instanceof Error ? error.message : String(error),
     };
+    
+    console.error('Failed to extract repository information from URL:', errorDetails);
+    
+    throw handleGitHubError(
+      'Failed to extract repository information from URL',
+      errorDetails,
+      [
+        'Make sure you are on a valid GitHub repository or pull request page',
+        'Check that the URL format is correct',
+        'Try refreshing the page'
+      ],
+      false
+    );
   }
 }
 
@@ -82,6 +105,7 @@ export function generatePrIdentifier(repoInfo: RepoInfo): string | null {
     const { owner, repo, prNumber, isValid } = repoInfo;
     
     if (!isValid || !owner || !repo) {
+      console.warn('Cannot generate PR identifier from invalid repo info:', repoInfo);
       return null;
     }
 
@@ -92,10 +116,11 @@ export function generatePrIdentifier(repoInfo: RepoInfo): string | null {
     // Return repository identifier without PR number
     return `${owner}/${repo}`;
   } catch (error) {
-    handleGitHubError('Failed to generate PR identifier', {
+    console.error('Failed to generate PR identifier:', {
       repoInfo,
-      error,
+      error: error instanceof Error ? error.message : String(error),
     });
+    
     return null;
   }
 }
@@ -107,7 +132,15 @@ export function generatePrIdentifier(repoInfo: RepoInfo): string | null {
  * @returns True if the URL is a GitHub PR page
  */
 export function isGitHubPrPage(url: string): boolean {
-  return PR_URL_REGEX.test(url);
+  try {
+    return PR_URL_REGEX.test(url);
+  } catch (error) {
+    console.warn('Error checking if URL is GitHub PR page:', {
+      url,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
 }
 
 /**
@@ -116,7 +149,16 @@ export function isGitHubPrPage(url: string): boolean {
  * @returns Repository information object
  */
 export function getCurrentRepoInfo(): RepoInfo {
-  return extractRepoInfoFromUrl(window.location.href);
+  try {
+    return extractRepoInfoFromUrl(window.location.href);
+  } catch (error) {
+    console.error('Failed to get current repo info:', error);
+    return {
+      owner: '',
+      repo: '',
+      isValid: false,
+    };
+  }
 }
 
 /**
@@ -125,6 +167,11 @@ export function getCurrentRepoInfo(): RepoInfo {
  * @returns PR identifier or null if not on a valid PR page
  */
 export function getCurrentPrIdentifier(): string | null {
-  const repoInfo = getCurrentRepoInfo();
-  return generatePrIdentifier(repoInfo);
+  try {
+    const repoInfo = getCurrentRepoInfo();
+    return generatePrIdentifier(repoInfo);
+  } catch (error) {
+    console.error('Failed to get current PR identifier:', error);
+    return null;
+  }
 } 

@@ -53,6 +53,7 @@ export enum ErrorCategory {
   STORAGE = 'storage',
   GITHUB = 'github',
   NETWORK = 'network',
+  YAML = 'yaml',
   UNKNOWN = 'unknown'
 }
 
@@ -61,4 +62,15 @@ export interface ExtensionError {
   message: string;
   details?: unknown;
   timestamp: number;
+  suggestions?: string[];
+  recoverable?: boolean;
+}
+
+/**
+ * UI State
+ */
+export interface LoadingState {
+  isLoading: boolean;
+  message?: string;
+  operation?: string;
 } 

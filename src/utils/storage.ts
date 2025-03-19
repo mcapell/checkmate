@@ -72,7 +72,15 @@ class BrowserStorageManager implements StorageManager {
         // Use sync storage if available, fall back to local storage
         this.storage = chrome.storage.sync || chrome.storage.local;
       } else {
-        throw new Error('Browser storage is not available');
+        throw handleStorageError(
+          'Browser storage is not available',
+          { environment: typeof window !== 'undefined' ? 'browser' : 'non-browser' },
+          [
+            'Make sure you are using a supported browser',
+            'Check if browser extensions are enabled'
+          ],
+          false
+        );
       }
     }
   }
@@ -84,9 +92,28 @@ class BrowserStorageManager implements StorageManager {
    */
   async saveChecklistState(state: ChecklistState): Promise<void> {
     try {
+      if (!state) {
+        throw new Error('Cannot save null or undefined checklist state');
+      }
+      
+      console.log('Saving checklist state...');
       await this.set({ [STORAGE_KEYS.CHECKLIST_STATE]: state });
+      console.log('Checklist state saved successfully');
     } catch (error) {
-      throw handleStorageError('Failed to save checklist state', error);
+      console.error('Failed to save checklist state:', error);
+      throw handleStorageError(
+        'Failed to save checklist state',
+        { 
+          error: error instanceof Error ? error.message : String(error),
+          state: { ...state, items: 'truncated for logging' }
+        },
+        [
+          'Try again in a few moments',
+          'Check your browser permissions for storage access',
+          'If the problem persists, try clearing the extension data'
+        ],
+        true
+      );
     }
   }
 
@@ -96,10 +123,29 @@ class BrowserStorageManager implements StorageManager {
    */
   async getChecklistState(): Promise<ChecklistState | null> {
     try {
+      console.log('Retrieving checklist state...');
       const result = await this.get(STORAGE_KEYS.CHECKLIST_STATE);
-      return result[STORAGE_KEYS.CHECKLIST_STATE] || null;
+      const state = result[STORAGE_KEYS.CHECKLIST_STATE] || null;
+      
+      if (state) {
+        console.log('Checklist state retrieved successfully');
+      } else {
+        console.log('No existing checklist state found');
+      }
+      
+      return state;
     } catch (error) {
-      throw handleStorageError('Failed to retrieve checklist state', error);
+      console.error('Failed to retrieve checklist state:', error);
+      throw handleStorageError(
+        'Failed to retrieve checklist state', 
+        error instanceof Error ? error.message : String(error),
+        [
+          'Try reloading the extension',
+          'Check your browser permissions for storage access',
+          'If the problem persists, try clearing the extension data'
+        ],
+        true
+      );
     }
   }
 
@@ -110,9 +156,28 @@ class BrowserStorageManager implements StorageManager {
    */
   async saveOptions(options: ExtensionOptions): Promise<void> {
     try {
+      if (!options) {
+        throw new Error('Cannot save null or undefined options');
+      }
+      
+      console.log('Saving extension options...');
       await this.set({ [STORAGE_KEYS.OPTIONS]: options });
+      console.log('Extension options saved successfully');
     } catch (error) {
-      throw handleStorageError('Failed to save extension options', error);
+      console.error('Failed to save extension options:', error);
+      throw handleStorageError(
+        'Failed to save extension options', 
+        { 
+          error: error instanceof Error ? error.message : String(error),
+          options
+        },
+        [
+          'Try again in a few moments',
+          'Check your browser permissions for storage access',
+          'If the problem persists, try clearing the extension data'
+        ],
+        true
+      );
     }
   }
 
@@ -122,10 +187,23 @@ class BrowserStorageManager implements StorageManager {
    */
   async getOptions(): Promise<ExtensionOptions> {
     try {
+      console.log('Retrieving extension options...');
       const result = await this.get(STORAGE_KEYS.OPTIONS);
-      return result[STORAGE_KEYS.OPTIONS] || DEFAULT_OPTIONS;
+      const options = result[STORAGE_KEYS.OPTIONS] || DEFAULT_OPTIONS;
+      
+      if (result[STORAGE_KEYS.OPTIONS]) {
+        console.log('Extension options retrieved successfully');
+      } else {
+        console.log('No stored options found, using default options');
+      }
+      
+      return options;
     } catch (error) {
-      throw handleStorageError('Failed to retrieve extension options', error);
+      console.error('Failed to retrieve extension options:', error);
+      console.log('Falling back to default options due to error');
+      
+      // For options, we always fall back to defaults rather than throw
+      return DEFAULT_OPTIONS;
     }
   }
 
@@ -135,6 +213,7 @@ class BrowserStorageManager implements StorageManager {
    */
   async clearStorage(): Promise<void> {
     try {
+      console.log('Clearing storage...');
       await new Promise<void>((resolve, reject) => {
         this.storage.clear(() => {
           if (chrome.runtime.lastError) {
@@ -144,8 +223,19 @@ class BrowserStorageManager implements StorageManager {
           }
         });
       });
+      console.log('Storage cleared successfully');
     } catch (error) {
-      throw handleStorageError('Failed to clear storage', error);
+      console.error('Failed to clear storage:', error);
+      throw handleStorageError(
+        'Failed to clear storage', 
+        error instanceof Error ? error.message : String(error),
+        [
+          'Try reloading the extension',
+          'Check your browser permissions for storage access',
+          'Try again in a few moments'
+        ],
+        true
+      );
     }
   }
 
@@ -191,7 +281,7 @@ let storageManagerInstance: StorageManager;
 try {
   storageManagerInstance = new BrowserStorageManager();
 } catch (error) {
-  console.warn('Browser storage not available, storage manager will not be initialized');
+  console.warn('Browser storage not available, storage manager will not be initialized', error);
 }
 
 export const storageManager: StorageManager = storageManagerInstance!;
