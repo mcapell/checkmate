@@ -916,6 +916,11 @@ export class Sidebar {
     label.htmlFor = checkbox.id;
     label.textContent = item.name;
     
+    // Apply strikethrough style if checked
+    if (itemState.checked) {
+      label.classList.add('checkmate-item-checked');
+    }
+    
     // Create label wrapper to hold both label and URL link if present
     const labelWrapper = document.createElement('div');
     labelWrapper.className = 'checkmate-label-wrapper';
@@ -1061,6 +1066,34 @@ export class Sidebar {
       
       // Save state
       this.saveState();
+      
+      // Update UI - apply or remove strikethrough
+      const checkboxElement = document.getElementById(`checkmate-item-${itemId}`);
+      if (checkboxElement) {
+        // Find the item element (parent of the checkbox)
+        const itemElement = checkboxElement.closest(`.${CSS_CLASSES.CHECKLIST_ITEM}`);
+        if (itemElement) {
+          // Find the label directly by its "for" attribute which matches the checkbox ID
+          const label = itemElement.querySelector(`label[for="checkmate-item-${itemId}"]`) as HTMLElement;
+          if (label) {
+            if (checked) {
+              label.classList.add('checkmate-item-checked');
+            } else {
+              label.classList.remove('checkmate-item-checked');
+            }
+            
+            // Force a repaint for Firefox
+            if (navigator.userAgent.includes('Firefox')) {
+              // This small trick forces Firefox to re-render
+              const display = label.style.display;
+              label.style.display = 'none';
+              // Accessing offsetHeight forces a reflow
+              const forceReflow = label.offsetHeight; 
+              label.style.display = display;
+            }
+          }
+        }
+      }
       
       // Update the needs attention section as it might need to change
       this.renderNeedsAttentionSection();

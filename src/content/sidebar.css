@@ -351,6 +351,24 @@
   color: var(--checkmate-text);
 }
 
+/* Checked item style with strikethrough */
+.checkmate-item-checked {
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--checkmate-text-secondary);
+  opacity: 0.7;
+  color: var(--checkmate-text-secondary);
+}
+
+/* Firefox-specific styles for strikethrough */
+@-moz-document url-prefix() {
+  .checkmate-item-checked {
+    text-decoration: line-through !important;
+    text-decoration-thickness: 2px !important;
+    text-decoration-color: var(--checkmate-text-secondary) !important;
+  }
+}
+
 /* Label wrapper for flexible label and URL icon layout */
 .checkmate-label-wrapper {
   flex: 1;
