@@ -5,7 +5,7 @@
  */
 
 import { RepoInfo } from '../utils/github-utils';
-import { ChecklistTemplate, Section, ChecklistItem, ChecklistState, ItemState } from '../types';
+import { ChecklistTemplate, Section, ChecklistItem, ChecklistState, ItemState, StorageState } from '../types';
 import { templateManager } from '../utils/template';
 import { storageManager } from '../utils/storage';
 import { themeManager } from '../utils/theme';
@@ -518,15 +518,11 @@ export class Sidebar {
    */
   private async loadState(): Promise<void> {
     if (!this.stateKey) {
-      this.stateKey = this.generateStateKey();
-      if (!this.stateKey) {
-        console.warn('Unable to generate state key, cannot load state');
-        return;
-      }
+      console.warn('No state key available, cannot load state');
+      return;
     }
 
     try {
-      console.log('Loading state for key:', this.stateKey);
       const storageState = await storageManager.getChecklistState();
       
       if (storageState && this.stateKey in storageState) {
@@ -591,7 +587,7 @@ export class Sidebar {
       // Update last updated timestamp
       this.state.lastUpdated = Date.now();
       
-      // Get current storage state or initialize empty object
+      // Get current storage state or initialize empty object as StorageState
       const storageState = await storageManager.getChecklistState() || {};
       
       // Update the specific PR state
@@ -908,6 +904,8 @@ export class Sidebar {
     // Apply needs attention styling if needed
     if (itemState.needsAttention) {
       itemElement.classList.add(CSS_CLASSES.ITEM_NEEDS_ATTENTION);
+      // Hide checkbox for items that need attention
+      checkbox.style.display = 'none';
     }
     
     // Create label
@@ -982,6 +980,13 @@ export class Sidebar {
       const target = event.target as HTMLInputElement;
       this.handleCheckboxChange(item, target.checked);
     });
+
+    // Prevent label from toggling checkbox when in needs attention state
+    label.addEventListener('click', (event) => {
+      if (itemState.needsAttention) {
+        event.preventDefault();
+      }
+    });
     
     return itemElement;
   }
@@ -1019,6 +1024,35 @@ export class Sidebar {
       
       // Toggle needs attention state
       itemState.needsAttention = !itemState.needsAttention;
+      
+      // If setting to "needs attention", uncheck the item
+      if (itemState.needsAttention) {
+        itemState.checked = false;
+        
+        // Update checkbox in the UI if it exists
+        const checkboxElement = document.getElementById(`checkmate-item-${itemId}`) as HTMLInputElement;
+        if (checkboxElement) {
+          checkboxElement.checked = false;
+          
+          // Hide checkbox when in needs attention state
+          checkboxElement.style.display = 'none';
+          
+          // Find the label to remove checked style
+          const itemElement = checkboxElement.closest(`.${CSS_CLASSES.CHECKLIST_ITEM}`);
+          if (itemElement) {
+            const label = itemElement.querySelector(`label[for="checkmate-item-${itemId}"]`) as HTMLElement;
+            if (label) {
+              label.classList.remove('checkmate-item-checked');
+            }
+          }
+        }
+      } else {
+        // Show checkbox when removing needs attention state
+        const checkboxElement = document.getElementById(`checkmate-item-${itemId}`) as HTMLInputElement;
+        if (checkboxElement) {
+          checkboxElement.style.display = '';
+        }
+      }
       
       // Save state
       this.saveState();
@@ -1061,6 +1095,16 @@ export class Sidebar {
     if (this.state) {
       const itemId = this.generateItemId(item);
       const itemState = this.getItemState(itemId);
+      
+      // Don't allow checking items that need attention
+      if (itemState.needsAttention) {
+        // Reset checkbox to unchecked if it was somehow checked
+        const checkboxElement = document.getElementById(`checkmate-item-${itemId}`) as HTMLInputElement;
+        if (checkboxElement) {
+          checkboxElement.checked = false;
+        }
+        return;
+      }
       
       itemState.checked = checked;
       
@@ -1168,15 +1212,123 @@ export class Sidebar {
         
         // Add click handler to scroll to the original item
         itemLink.addEventListener('click', () => {
-          const originalItem = document.getElementById(originalItemId);
-          if (originalItem) {
-            originalItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // First, find the section that contains the item
+          const sectionId = `checkmate-section-${this.generateSectionId(section)}`;
+          const sectionElement = document.getElementById(sectionId);
+          
+          if (sectionElement) {
+            // Ensure the section is expanded
+            const sectionContent = sectionElement.querySelector(`.${CSS_CLASSES.CHECKLIST_SECTION_CONTENT}`);
+            const sectionToggle = sectionElement.querySelector(`.${CSS_CLASSES.CHECKLIST_SECTION_TOGGLE}`);
+            const expandCollapseBtn = sectionContent?.querySelector(`.${CSS_CLASSES.CHECKLIST_EXPAND_COLLAPSE_BTN}`);
             
-            // Highlight the item briefly
-            originalItem.parentElement?.classList.add('highlight');
-            setTimeout(() => {
-              originalItem.parentElement?.classList.remove('highlight');
-            }, 2000);
+            // If section is collapsed, expand it
+            if (sectionContent && (sectionContent as HTMLElement).style.display === 'none') {
+              // Find proper elements for toggling
+              if (sectionToggle && expandCollapseBtn) {
+                this.updateSectionVisibility(
+                  sectionContent as HTMLElement, 
+                  sectionToggle as HTMLElement, 
+                  expandCollapseBtn as HTMLElement, 
+                  true
+                );
+                
+                // Update state to reflect expanded section
+                if (this.state && this.state.sections) {
+                  this.state.sections[section.name] = true;
+                  this.saveState();
+                }
+              }
+            }
+            
+            // Now that section is expanded, find the original item and scroll to it
+            const originalItem = document.getElementById(originalItemId);
+            if (originalItem) {
+              // Small delay to ensure section expansion is complete
+              setTimeout(() => {
+                // Get a reference to the item's parent element for highlighting
+                const itemParent = originalItem.closest(`.${CSS_CLASSES.CHECKLIST_ITEM}`);
+                
+                // First, let's apply the highlight to make the item stand out
+                if (itemParent) {
+                  // Remove any existing highlights
+                  const allHighlighted = document.querySelectorAll('.highlight');
+                  allHighlighted.forEach(el => el.classList.remove('highlight'));
+                  
+                  // Add highlight to this item
+                  itemParent.classList.add('highlight');
+                  
+                  // Remove highlight after some time
+                  setTimeout(() => {
+                    itemParent.classList.remove('highlight');
+                  }, 3500); // Slightly longer highlight (3.5 seconds)
+                }
+                
+                // ----- FIREFOX-COMPATIBLE SCROLLING -----
+                
+                // Get all elements up to the target (including sections and items)
+                const allSections = Array.from(this.content.querySelectorAll(`.${CSS_CLASSES.CHECKLIST_SECTION}`));
+                const allItems = Array.from(this.content.querySelectorAll(`.${CSS_CLASSES.CHECKLIST_ITEM}`));
+                const needsAttentionSection = this.content.querySelector(`.${CSS_CLASSES.NEEDS_ATTENTION_SECTION}`);
+                
+                // Calculate the position of the item within the sidebar content
+                let offsetTop = 0;
+                
+                // First add the needs attention section height if it exists
+                if (needsAttentionSection) {
+                  offsetTop += (needsAttentionSection as HTMLElement).offsetHeight + 24; // section + margin
+                }
+                
+                // Add heights of previous sections until we reach our target section
+                for (const sect of allSections) {
+                  if (sect.id === sectionId) {
+                    // We found our section, now calculate offset inside this section
+                    const sectionContentEl = sect.querySelector(`.${CSS_CLASSES.CHECKLIST_SECTION_CONTENT}`);
+                    const sectionHeaderEl = sect.querySelector(`.${CSS_CLASSES.CHECKLIST_SECTION_HEADER}`);
+                    
+                    // Add section header height
+                    if (sectionHeaderEl) {
+                      offsetTop += (sectionHeaderEl as HTMLElement).offsetHeight;
+                    }
+                    
+                    // Find all items within this section until our target item
+                    if (sectionContentEl) {
+                      const sectionItems = Array.from(sectionContentEl.querySelectorAll(`.${CSS_CLASSES.CHECKLIST_ITEM}`));
+                      for (const item of sectionItems) {
+                        if (item.contains(originalItem)) {
+                          // Found our item! Add the content padding 
+                          offsetTop += 12; // Content padding-top
+                          break;
+                        } else {
+                          // Add this item's height plus margin
+                          offsetTop += (item as HTMLElement).offsetHeight + 8; // item + margin-bottom
+                        }
+                      }
+                    }
+                    
+                    break;
+                  } else {
+                    // Add entire section height and margin
+                    offsetTop += (sect as HTMLElement).offsetHeight + 24; // section + margin-bottom
+                  }
+                }
+                
+                // Adjust to center the item in view
+                const itemHeight = (itemParent as HTMLElement).offsetHeight;
+                const contentHeight = this.content.offsetHeight;
+                offsetTop = Math.max(0, offsetTop - (contentHeight / 2) + (itemHeight / 2));
+                
+                // Log for debugging
+                console.log('Scrolling to item with calculated offset:', offsetTop);
+                
+                // Scroll to the calculated position
+                this.content.scrollTo({
+                  top: offsetTop,
+                  behavior: 'smooth'
+                });
+                
+              }, 250); // Increase delay to ensure section has expanded
+            }
           }
         });
         

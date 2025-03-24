@@ -25,7 +25,7 @@
 /* Main sidebar */
 .checkmate-sidebar {
   height: 100%;
-  width: 400px;
+  width: 450px;
   background-color: var(--checkmate-background);
   border-left: 1px solid var(--checkmate-border);
   display: flex;
@@ -246,6 +246,12 @@
   margin-right: -8px;
 }
 
+/* Change cursor for labels of items that need attention to indicate they're not clickable */
+.checkmate-item-needs-attention .checkmate-checklist-item-label {
+  cursor: default;
+  font-weight: 500; /* Make text slightly bolder */
+}
+
 /* Checklist checkbox */
 .checkmate-checklist-checkbox {
   margin-top: 2px;
@@ -334,13 +340,40 @@
 
 /* Highlight animation for items */
 @keyframes highlight-pulse {
-  0% { background-color: transparent; }
-  50% { background-color: var(--checkmate-pulse-color); }
-  100% { background-color: transparent; }
+  0% { 
+    background-color: transparent;
+    transform: translateX(0);
+  }
+  10% {
+    transform: translateX(-3px);
+  }
+  20% { 
+    background-color: var(--checkmate-pulse-color); 
+    transform: translateX(3px);
+  }
+  30% {
+    transform: translateX(-2px);
+  }
+  40% {
+    transform: translateX(2px);
+  }
+  50% { 
+    background-color: var(--checkmate-pulse-color);
+    transform: translateX(0);
+  }
+  100% { 
+    background-color: transparent;
+    transform: translateX(0);
+  }
 }
 
 .checkmate-checklist-item.highlight {
-  animation: highlight-pulse 1.5s ease-in-out;
+  animation: highlight-pulse 3s ease-in-out;
+  border-left: 3px solid var(--checkmate-warning);
+  box-shadow: 0 0 8px rgba(255, 200, 0, 0.4);
+  z-index: 1; /* Ensure the highlighted item appears above others */
+  position: relative; /* Needed for z-index to work properly */
+  padding-left: 8px !important; /* Account for the border */
 }
 
 /* Checklist item label */
